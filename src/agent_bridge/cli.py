@@ -18,9 +18,13 @@ def main():
     copilot_parser.add_argument("--source", default=".agent", help="Source directory")
     copilot_parser.add_argument("--output", default=".github/copilot-instructions.md", help="Output file path")
 
-    # Update-kit Subcommand
-    update_parser = subparsers.add_parser("update-kit", help="Update agents/skills from the original Antigravity Kit repo")
+    # Update Subcommand
+    update_parser = subparsers.add_parser("update", help="Clone latest from repo and refresh local configs")
     update_parser.add_argument("--target", default=".agent", help="Target directory to update")
+
+    # Init Subcommand
+    init_parser = subparsers.add_parser("init", help="Initialize AI in current project (Copilot & Kiro)")
+    init_parser.add_argument("--source", default=".agent", help="Source of knowledge")
 
     args = parser.parse_args()
 
@@ -28,8 +32,14 @@ def main():
         convert_kiro(args.source, args.output)
     elif args.format == "copilot":
         convert_copilot(args.source, args.output)
-    elif args.format == "update-kit":
+    elif args.format == "update" or args.format == "update-kit":
         update_kit(args.target)
+    elif args.format == "init":
+        print("\033[95m🚀 Initializing AI for current project...\033[0m")
+        # Try convert for both
+        convert_copilot(args.source, "")
+        convert_kiro(args.source, ".kiro")
+        print("\033[92m✅ Initialization complete!\033[0m")
     else:
         parser.print_help()
 

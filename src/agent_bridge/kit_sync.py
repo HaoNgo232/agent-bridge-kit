@@ -12,6 +12,24 @@ class Colors:
     RED = '\033[91m'
     ENDC = '\033[0m'
 
+def check_and_refresh_project(source_dir: str):
+    """Detects existing formats and refreshes them."""
+    # We import here to avoid circular imports if any
+    from .copilot_conv import convert_copilot
+    from .kiro_conv import convert_kiro
+
+    cwd = Path.cwd()
+    
+    # Check for Copilot
+    if (cwd / ".github" / "agents").exists():
+        print(f"{Colors.YELLOW}🔄 Auto-refreshing Copilot Spec...{Colors.ENDC}")
+        convert_copilot(source_dir, "")
+        
+    # Check for Kiro
+    if (cwd / ".kiro" / "agents").exists():
+        print(f"{Colors.YELLOW}🔄 Auto-refreshing Kiro Format...{Colors.ENDC}")
+        convert_kiro(source_dir, ".kiro")
+
 KIT_REPO_URL = "https://github.com/vudovn/antigravity-kit"
 
 def get_master_agent_dir() -> Path:
@@ -66,7 +84,9 @@ def update_kit(target_dir: str):
                     print(f"{Colors.GREEN}    ✅ Sync {sub} complete.{Colors.ENDC}")
 
             print(f"{Colors.GREEN}✨ Antigravity Kit is now up to date!{Colors.ENDC}")
-            print(f"{Colors.YELLOW}🔔 Note: You may want to run 'agent-bridge kiro' or 'agent-bridge copilot' to update your IDE configs.{Colors.ENDC}")
+            
+            # Smart Refresh
+            check_and_refresh_project(str(target_path))
 
         except subprocess.CalledProcessError as e:
             print(f"{Colors.RED}❌ Failed to clone repository: {e.stderr.decode()}{Colors.ENDC}")
