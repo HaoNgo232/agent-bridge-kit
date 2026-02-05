@@ -216,28 +216,94 @@ def extract_agent_metadata(content: str, filename: str) -> Dict[str, Any]:
 
 
 def generate_kiro_agent_json(agent_slug: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate Kiro agent JSON configuration."""
+    """Generate professional Kiro agent JSON following the latest official spec."""
     
     # Get role-specific config or default
     config = AGENT_CONFIG_MAP.get(agent_slug, DEFAULT_AGENT_CONFIG)
+    
+    # Tool normalization (Internal -> Kiro Standard)
+    TOOL_MAP = {
+        "fs_read": "read",
+        "fs_write": "write",
+        "fs_list": "list",
+        "bash": "shell",
+        "web_search": "search",
+        "code_search": "code_search"
+    }
+    
+    # Normalize base tools and auto-approve tools
+    original_tools = config.get("tools", DEFAULT_AGENT_CONFIG["tools"])
+    base_tools = [TOOL_MAP.get(t, t) for t in original_tools]
+    
+    original_auto = config.get("autoApprove", DEFAULT_AGENT_CONFIG["autoApprove"])
+    allowed_tools = [TOOL_MAP.get(t, t) for t in original_auto]
     
     agent_json = {
         "name": metadata.get("name") or agent_slug.replace("-", " ").title(),
         "description": metadata.get("description") or f"Specialized agent for {agent_slug.replace('-', ' ')}",
         "prompt": metadata.get("prompt", ""),
         
-        # Tool configuration (Kiro uses list of tool names/patterns)
-        "tools": config.get("tools", DEFAULT_AGENT_CONFIG["tools"]),
+        # Tools allowed for the agent
+        "tools": base_tools,
         
-        # Additional settings supported by Kiro
-        "includeMcpJson": True
+        # Tools allowed without prompting (Auto-approve)
+        "allowedTools": allowed_tools,
+        
+        # Integration with MCP
+        "includeMcpJson": True,
+        
+        # Persistent knowledge (Steering & Skills)
+        "resources": [
+            "file://.kiro/steering/**/*.md",
+            "file://.kiro/skills/**/SKILL.md"
+        ],
+        
+        # Lifecycle Hooks
+        "hooks": {
+            "agentSpawn": [
+                {
+                    "command": "git status --short 2>/dev/null || true",
+                    "timeout_ms": 3000
+                }
+            ]
+        }
     }
+    
+    # Build toolsSettings for granular control (Official Spec)
+    tools_settings = {}
+    
+    # 1. Shell settings
+    if "shell" in base_tools and config.get("allowedCommands"):
+        tools_settings["shell"] = {
+            "allowedCommands": config["allowedCommands"],
+            "autoAllowReadonly": True
+        }
+    
+    # 2. File Read settings
+    if "read" in base_tools and config.get("allowedPaths"):
+        tools_settings["read"] = {
+            "allowedPaths": config["allowedPaths"],
+            "autoAllowReadonly": True
+        }
+        
+    # 3. File Write settings
+    if "write" in base_tools and config.get("allowedPaths"):
+        tools_settings["write"] = {
+            "allowedPaths": config["allowedPaths"]
+        }
+
+    if tools_settings:
+        agent_json["toolsSettings"] = tools_settings
     
     # Optional: Map model if present in metadata
     if metadata.get("model"):
         agent_json["model"] = metadata["model"]
+    elif config.get("model"):
+        agent_json["model"] = config["model"]
         
     return agent_json
+
+
 
 
 
@@ -284,8 +350,61 @@ def convert_skill_to_kiro(source_dir: Path, dest_dir: Path) -> bool:
         print(f"  Error converting skill {source_dir.name}: {e}")
         return False
 
+def convert_workflow_to_prompt(source_path: Path, dest_path: Path) -> bool:
+    """
+    Convert workflow to Kiro Prompt format.
+    Kiro Prompts require YAML frontmatter with description and arguments.
+    """
+    try:
+        content = source_path.read_text(encoding="utf-8")
+        workflow_name = source_path.stem.lower()
+        
+        # Extract existing frontmatter for description
+        description = "Custom workflow prompt"
+        fm_match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+        if fm_match:
+            try:
+                fm_data = yaml.safe_load(fm_match.group(1))
+                if isinstance(fm_data, dict) and fm_data.get("description"):
+                    description = fm_data["description"]
+            except: pass
+            
+        # Build Kiro Prompt frontmatter
+        prompt_fm = {
+            "description": description,
+            "arguments": [
+                {
+                    "name": "args",
+                    "description": "Arguments for the workflow",
+                    "required": False
+                }
+            ]
+        }
+        
+        # If content has $ARGUMENTS, it's a good sign it needs args
+        has_args = "$ARGUMENTS" in content
+        if not has_args:
+            prompt_fm["arguments"] = []
+            
+        # Clean content (remove old frontmatter)
+        content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
+        
+        # Replace $ARGUMENTS with {{args}} for Kiro template syntax
+        content_final = content_clean.replace("$ARGUMENTS", "{{args}}").strip()
+        
+        # Build final output
+        output = f"---\n{yaml.dump(prompt_fm, sort_keys=False)}---\n\n{content_final}\n"
+        
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_text(output, encoding="utf-8")
+        return True
+    except Exception as e:
+        print(f"  Error converting prompt {source_path.name}: {e}")
+        return False
+
 
 def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
+
     """Convert workflow to Kiro steering file."""
     try:
         content = source_path.read_text(encoding="utf-8")
@@ -539,7 +658,22 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
                 else:
                     stats["errors"].append(f"skill:{skill_dir.name}")
     
-    # Convert workflows to steering
+    # Convert workflows to Prompts (theo Kiro spec)
+    prompts_dest = dest_root / ".kiro" / "prompts"
+    if workflows_src.exists():
+        if verbose:
+            print("Converting workflows to prompts...")
+        
+        for workflow_file in workflows_src.glob("*.md"):
+            dest_file = prompts_dest / workflow_file.name
+            if convert_workflow_to_prompt(workflow_file, dest_file):
+                stats["steering"] += 1 # Count as steering/prompt
+                if verbose:
+                    print(f"  ✓ @{workflow_file.stem}")
+            else:
+                stats["errors"].append(f"prompt:{workflow_file.name}")
+
+    # Convert workflows to steering (backup/knowledge)
     if workflows_src.exists():
         if verbose:
             print("Converting workflows to steering...")
