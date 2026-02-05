@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from .utils import Colors, ask_user, get_master_agent_dir, install_mcp_for_ide
 
 import yaml
@@ -307,47 +308,16 @@ def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
         return False
 
 
-def copy_scripts_with_permissions(source_dir: Path, dest_dir: Path) -> bool:
+def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
     """
-    Copy scripts directory và preserve executable permissions.
+    Copy rules files vào Kiro steering directory.
     
-    Args:
-        source_dir: Thư mục scripts nguồn (.agent/scripts)
-        dest_dir: Thư mục scripts đích (.kiro/scripts)
-    
-    Returns:
-        True nếu thành công, False nếu có lỗi
-    """
-    try:
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        
-        for item in source_dir.iterdir():
-            dest_item = dest_dir / item.name
-            
-            if item.is_dir():
-                shutil.copytree(item, dest_item, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, dest_item)
-                
-                # Preserve executable permissions cho Python scripts và shell scripts
-                if item.suffix in ['.py', '.sh', '.bash', '.zsh']:
-                    # Get current permissions và add execute bit
-                    current_mode = item.stat().st_mode
-                    os.chmod(dest_item, current_mode | 0o111)  # Add execute for user, group, other
-        
-        return True
-    except Exception as e:
-        print(f"  Error copying scripts: {e}")
-        return False
-
-
-def copy_rules(source_dir: Path, dest_dir: Path) -> bool:
-    """
-    Copy rules directory.
+    Theo Kiro spec, rules (như GEMINI.md) phải được đặt trong .kiro/steering/
+    vì steering là nơi chứa "persistent knowledge about your project".
     
     Args:
         source_dir: Thư mục rules nguồn (.agent/rules)
-        dest_dir: Thư mục rules đích (.kiro/rules)
+        dest_dir: Thư mục steering đích (.kiro/steering)
     
     Returns:
         True nếu thành công, False nếu có lỗi
@@ -356,64 +326,37 @@ def copy_rules(source_dir: Path, dest_dir: Path) -> bool:
         dest_dir.mkdir(parents=True, exist_ok=True)
         
         for item in source_dir.iterdir():
-            dest_item = dest_dir / item.name
-            
-            if item.is_dir():
-                shutil.copytree(item, dest_item, dirs_exist_ok=True)
-            else:
+            if item.is_file() and item.suffix == '.md':
+                dest_item = dest_dir / item.name
                 shutil.copy2(item, dest_item)
         
         return True
     except Exception as e:
-        print(f"  Error copying rules: {e}")
+        print(f"  Error copying rules to steering: {e}")
         return False
 
 
-def copy_shared_resources(source_dir: Path, dest_dir: Path) -> bool:
+def copy_architecture_to_steering(source_file: Path, dest_dir: Path) -> bool:
     """
-    Copy shared resources directory.
+    Copy ARCHITECTURE.md vào Kiro steering directory.
     
-    Args:
-        source_dir: Thư mục .shared nguồn (.agent/.shared)
-        dest_dir: Thư mục .shared đích (.kiro/.shared)
-    
-    Returns:
-        True nếu thành công, False nếu có lỗi
-    """
-    try:
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        
-        for item in source_dir.iterdir():
-            dest_item = dest_dir / item.name
-            
-            if item.is_dir():
-                shutil.copytree(item, dest_item, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, dest_item)
-        
-        return True
-    except Exception as e:
-        print(f"  Error copying shared resources: {e}")
-        return False
-
-
-def copy_architecture_doc(source_file: Path, dest_file: Path) -> bool:
-    """
-    Copy ARCHITECTURE.md file.
+    Theo Kiro spec, architecture docs phải được đặt trong .kiro/steering/
+    vì đây là project knowledge/conventions.
     
     Args:
         source_file: File ARCHITECTURE.md nguồn
-        dest_file: File ARCHITECTURE.md đích
+        dest_dir: Thư mục steering đích (.kiro/steering)
     
     Returns:
         True nếu thành công, False nếu có lỗi
     """
     try:
-        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_file = dest_dir / source_file.name
         shutil.copy2(source_file, dest_file)
         return True
     except Exception as e:
-        print(f"  Error copying ARCHITECTURE.md: {e}")
+        print(f"  Error copying ARCHITECTURE.md to steering: {e}")
         return False
 
 
@@ -437,19 +380,103 @@ def copy_mcp_config(source_file: Path, dest_file: Path) -> bool:
         return False
 
 
+def fetch_external_skill_resources(project_root: Path, verbose: bool = True) -> bool:
+    """
+    Install ui-ux-pro-max skill resources using uipro CLI.
+    
+    Skill ui-ux-pro-max có CLI riêng:
+    https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+    
+    Nếu uipro CLI chưa có, tự động install: npm install -g uipro-cli
+    Sau đó chạy: uipro init --ai kiro
+    
+    Args:
+        project_root: Project root directory (nơi chạy uipro init)
+        verbose: Print progress messages
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        # Check xem uipro CLI đã được install chưa
+        check_result = subprocess.run(
+            ["uipro", "--version"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root)
+        )
+        
+        # Nếu chưa có, auto-install
+        if check_result.returncode != 0:
+            if verbose:
+                print(f"  📦 uipro CLI not found, installing globally...")
+            
+            # Chạy npm install -g uipro-cli
+            install_result = subprocess.run(
+                ["npm", "install", "-g", "uipro-cli"],
+                capture_output=True,
+                text=True
+            )
+            
+            if install_result.returncode != 0:
+                if verbose:
+                    print(f"  ⚠️  Failed to install uipro-cli: {install_result.stderr}")
+                    print(f"  💡 Try manually: npm install -g uipro-cli")
+                return False
+            
+            if verbose:
+                print(f"  ✓ uipro-cli installed successfully")
+        
+        if verbose:
+            print(f"  📥 Installing ui-ux-pro-max via uipro CLI...")
+        
+        # Chạy uipro init --ai kiro
+        result = subprocess.run(
+            ["uipro", "init", "--ai", "kiro"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root)
+        )
+        
+        if result.returncode != 0:
+            if verbose:
+                print(f"  ⚠️  uipro init failed: {result.stderr}")
+            return False
+        
+        if verbose:
+            print(f"  ✓ ui-ux-pro-max installed via uipro CLI")
+        
+        return True
+        
+    except FileNotFoundError as e:
+        if verbose:
+            if "npm" in str(e):
+                print(f"  ⚠️  npm not found. Please install Node.js first.")
+            else:
+                print(f"  ⚠️  Command not found: {e}")
+        return False
+    except Exception as e:
+        if verbose:
+            print(f"  ⚠️  Error installing ui-ux-pro-max: {e}")
+        return False
+
+
+
+
+
 def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) -> Dict[str, Any]:
     """
     Main conversion function for Kiro CLI format.
     
-    Converts 100% của .agent structure sang Kiro format:
+    Converts theo Kiro official spec (https://kiro.dev/docs/cli/):
     - agents/ → .kiro/agents/ (JSON format)
     - skills/ → .kiro/skills/ (full copy)
     - workflows/ → .kiro/steering/ (remove frontmatter)
-    - scripts/ → .kiro/scripts/ (với executable permissions)
-    - rules/ → .kiro/rules/
-    - .shared/ → .kiro/.shared/
-    - ARCHITECTURE.md → .kiro/ARCHITECTURE.md
+    - rules/ → .kiro/steering/ (GEMINI.md và các rules khác)
+    - ARCHITECTURE.md → .kiro/steering/ (project knowledge)
     - mcp_config.json → .kiro/settings/mcp.json
+    
+    NOTE: scripts/ và .shared/ KHÔNG được convert vì không thuộc Kiro spec.
     
     Args:
         source_root: Path to project root containing .agent/
@@ -462,12 +489,9 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     stats = {
         "agents": 0, 
         "skills": 0, 
-        "steering": 0, 
-        "scripts": 0,
-        "rules": 0,
-        "shared": 0,
-        "architecture": 0,
+        "steering": 0,
         "mcp": 0,
+        "warnings": [],
         "errors": []
     }
     
@@ -484,20 +508,15 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     workflows_src = agent_root / "workflows"
     steering_dest = kiro_root / "steering"
     
-    scripts_src = agent_root / "scripts"
-    scripts_dest = kiro_root / "scripts"
-    
     rules_src = agent_root / "rules"
-    rules_dest = kiro_root / "rules"
-    
-    shared_src = agent_root / ".shared"
-    shared_dest = kiro_root / ".shared"
-    
     architecture_src = agent_root / "ARCHITECTURE.md"
-    architecture_dest = kiro_root / "ARCHITECTURE.md"
     
     mcp_src = agent_root / "mcp_config.json"
     mcp_dest = kiro_root / "settings" / "mcp.json"
+    
+    # Components không thuộc Kiro spec
+    scripts_src = agent_root / "scripts"
+    shared_src = agent_root / ".shared"
     
     # Convert agents to JSON
     if agents_src.exists():
@@ -530,7 +549,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     # Convert workflows to steering
     if workflows_src.exists():
         if verbose:
-            print("Converting workflows to Kiro steering...")
+            print("Converting workflows to steering...")
         
         for workflow_file in workflows_src.glob("*.md"):
             dest_file = steering_dest / workflow_file.name
@@ -541,51 +560,28 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
             else:
                 stats["errors"].append(f"steering:{workflow_file.name}")
     
-    # Copy scripts với executable permissions
-    if scripts_src.exists():
-        if verbose:
-            print("Copying scripts with executable permissions...")
-        
-        if copy_scripts_with_permissions(scripts_src, scripts_dest):
-            stats["scripts"] = len(list(scripts_src.iterdir()))
-            if verbose:
-                print(f"  ✓ {stats['scripts']} script(s) copied")
-        else:
-            stats["errors"].append("scripts:copy_failed")
-    
-    # Copy rules
+    # Copy rules to steering (theo Kiro spec)
     if rules_src.exists():
         if verbose:
-            print("Copying rules...")
+            print("Copying rules to steering...")
         
-        if copy_rules(rules_src, rules_dest):
-            stats["rules"] = len(list(rules_src.iterdir()))
+        if copy_rules_to_steering(rules_src, steering_dest):
+            rule_count = len(list(rules_src.glob("*.md")))
+            stats["steering"] += rule_count
             if verbose:
-                print(f"  ✓ {stats['rules']} rule(s) copied")
+                print(f"  ✓ {rule_count} rule file(s) → steering/")
         else:
             stats["errors"].append("rules:copy_failed")
     
-    # Copy shared resources
-    if shared_src.exists():
-        if verbose:
-            print("Copying shared resources...")
-        
-        if copy_shared_resources(shared_src, shared_dest):
-            stats["shared"] = len(list(shared_src.iterdir()))
-            if verbose:
-                print(f"  ✓ {stats['shared']} shared resource(s) copied")
-        else:
-            stats["errors"].append("shared:copy_failed")
-    
-    # Copy ARCHITECTURE.md
+    # Copy ARCHITECTURE.md to steering (theo Kiro spec)
     if architecture_src.exists():
         if verbose:
-            print("Copying ARCHITECTURE.md...")
+            print("Copying ARCHITECTURE.md to steering...")
         
-        if copy_architecture_doc(architecture_src, architecture_dest):
-            stats["architecture"] = 1
+        if copy_architecture_to_steering(architecture_src, steering_dest):
+            stats["steering"] += 1
             if verbose:
-                print(f"  ✓ ARCHITECTURE.md copied")
+                print(f"  ✓ ARCHITECTURE.md → steering/")
         else:
             stats["errors"].append("architecture:copy_failed")
     
@@ -597,21 +593,43 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         if copy_mcp_config(mcp_src, mcp_dest):
             stats["mcp"] = 1
             if verbose:
-                print(f"  ✓ MCP config copied to settings/mcp.json")
+                print(f"  ✓ MCP config → settings/mcp.json")
         else:
             stats["errors"].append("mcp:copy_failed")
     
+    # Install ui-ux-pro-max skill via uipro CLI (nếu có workflow)
+    ui_ux_workflow = workflows_src / "ui-ux-pro-max.md" if workflows_src.exists() else None
+    if ui_ux_workflow and ui_ux_workflow.exists():
+        if verbose:
+            print("Installing ui-ux-pro-max skill...")
+        
+        if fetch_external_skill_resources(source_root, verbose):
+            # CLI sẽ tự động tạo .kiro/skills/ui-ux-pro-max/
+            pass
+        else:
+            stats["warnings"].append("ui-ux-pro-max install failed (install uipro CLI: npm install -g uipro-cli)")
+
+    
+    # Warnings cho components không được convert
+    if scripts_src.exists():
+        stats["warnings"].append("scripts/ not converted (not part of Kiro spec)")
+    
+    if shared_src.exists():
+        stats["warnings"].append(".shared/ not converted (use external repos like ui-ux-pro-max)")
+
+    
     # Final summary
     if verbose:
-        print(f"\n{Colors.GREEN}✨ Kiro conversion complete (100% coverage):{Colors.ENDC}")
+        print(f"\n{Colors.GREEN}✨ Kiro conversion complete (Official Spec):{Colors.ENDC}")
         print(f"  • {stats['agents']} agents")
         print(f"  • {stats['skills']} skills")
-        print(f"  • {stats['steering']} steering files")
-        print(f"  • {stats['scripts']} scripts (with exec permissions)")
-        print(f"  • {stats['rules']} rules")
-        print(f"  • {stats['shared']} shared resources")
-        print(f"  • {stats['architecture']} architecture doc")
+        print(f"  • {stats['steering']} steering files (workflows + rules + architecture)")
         print(f"  • {stats['mcp']} MCP config")
+        
+        if stats["warnings"]:
+            print(f"\n{Colors.YELLOW}⚠️  Warnings:{Colors.ENDC}")
+            for warning in stats["warnings"]:
+                print(f"    - {warning}")
         
         if stats["errors"]:
             print(f"\n{Colors.RED}  ⚠️  Errors: {len(stats['errors'])}{Colors.ENDC}")
