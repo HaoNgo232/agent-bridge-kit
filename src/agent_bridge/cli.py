@@ -4,6 +4,8 @@ from pathlib import Path
 from .kiro_conv import convert_kiro
 from .copilot_conv import convert_copilot
 from .opencode_conv import convert_opencode
+from .cursor_conv import convert_cursor
+from .windsurf_conv import convert_windsurf
 from .kit_sync import update_kit
 
 def main():
@@ -30,6 +32,8 @@ def main():
     init_parser.add_argument("--copilot", action="store_true", help="Only init Copilot")
     init_parser.add_argument("--kiro", action="store_true", help="Only init Kiro")
     init_parser.add_argument("--opencode", action="store_true", help="Only init OpenCode")
+    init_parser.add_argument("--cursor", action="store_true", help="Only init Cursor")
+    init_parser.add_argument("--windsurf", action="store_true", help="Only init Windsurf")
     init_parser.add_argument("--all", action="store_true", help="Init all formats (default if no flags)")
 
     # OpenCode Subcommand
@@ -38,9 +42,11 @@ def main():
  
     # Clean Subcommand
     clean_parser = subparsers.add_parser("clean", help="Remove generated IDE configuration folders")
-    clean_parser.add_argument("--copilot", action="store_true", help="Clean Copilot (.github/agents, .github/skills)")
-    clean_parser.add_argument("--kiro", action="store_true", help="Clean Kiro (.kiro)")
-    clean_parser.add_argument("--opencode", action="store_true", help="Clean OpenCode (.opencode, AGENTS.md)")
+    clean_parser.add_argument("--copilot", action="store_true", help="Clean Copilot")
+    clean_parser.add_argument("--kiro", action="store_true", help="Clean Kiro")
+    clean_parser.add_argument("--opencode", action="store_true", help="Clean OpenCode")
+    clean_parser.add_argument("--cursor", action="store_true", help="Clean Cursor")
+    clean_parser.add_argument("--windsurf", action="store_true", help="Clean Windsurf")
     clean_parser.add_argument("--all", action="store_true", help="Clean all IDE formats")
  
     # List Subcommand
@@ -58,7 +64,7 @@ def main():
         print("\033[95m🚀 Initializing AI for current project...\033[0m")
         
         # If no flags provided, set all to True
-        select_all = args.all or (not args.copilot and not args.kiro and not args.opencode)
+        select_all = args.all or (not args.copilot and not args.kiro and not args.opencode and not args.cursor and not args.windsurf)
         
         if select_all or args.copilot:
             convert_copilot(args.source, "")
@@ -66,6 +72,10 @@ def main():
             convert_kiro(args.source, ".kiro")
         if select_all or args.opencode:
             convert_opencode(args.source, "")
+        if select_all or args.cursor:
+            convert_cursor(args.source, "")
+        if select_all or args.windsurf:
+            convert_windsurf(args.source, "")
             
         print("\033[92m✅ Initialization complete!\033[0m")
     elif args.format == "list":
@@ -73,6 +83,8 @@ def main():
         print("  - \033[93mcopilot\033[0m: GitHub Copilot (.github/agents/)")
         print("  - \033[93mkiro\033[0m: Kiro CLI (.kiro/agents/)")
         print("  - \033[93mopencode\033[0m: OpenCode IDE (.opencode/agents/ + AGENTS.md)")
+        print("  - \033[93mcursor\033[0m: Cursor AI (.cursor/rules/*.mdc)")
+        print("  - \033[93mwindsurf\033[0m: Windsurf AI (.windsurf/rules/ + .windsurfrules)")
     elif args.format == "opencode":
         convert_opencode(args.source, "")
     elif args.format == "clean":
@@ -103,6 +115,19 @@ def main():
             if Path("AGENTS.md").exists():
                 os.remove("AGENTS.md")
                 print("  🗑️  Removed AGENTS.md")
+
+        if clean_all or args.cursor:
+            if Path(".cursor").exists():
+                shutil.rmtree(".cursor")
+                print("  🗑️  Removed .cursor")
+        
+        if clean_all or args.windsurf:
+            if Path(".windsurf").exists():
+                shutil.rmtree(".windsurf")
+                print("  🗑️  Removed .windsurf")
+            if Path(".windsurfrules").exists():
+                os.remove(".windsurfrules")
+                print("  🗑️  Removed .windsurfrules")
         print("\033[92m✅ Cleanup complete!\033[0m")
     else:
         parser.print_help()

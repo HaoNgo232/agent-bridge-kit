@@ -1,24 +1,46 @@
 {
     "mcpServers": {
+        "shadcn": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "shadcn@latest",
+                "mcp"
+            ]
+        },
         "context7": {
             "command": "npx",
             "args": [
                 "-y",
-                "@upstash/context7-mcp",
-                "--api-key",
-                "YOUR_API_KEY"
+                "@upstash/context7-mcp"
             ]
         },
-        "shadcn": {
+        "sequentialthinking": {
             "command": "npx",
             "args": [
-                "shadcn@latest",
-                "mcp"
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+            ]
+        },
+        "time": {
+            "command": "uvx",
+            "args": [
+                "mcp-server-time"
+            ]
+        },
+        "chrome-devtools": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "chrome-devtools-mcp@latest"
+            ]
+        },
+        "next-devtools": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "next-devtools-mcp@latest"
             ]
         }
-        //other mcp servers
     }
 }
-
-// setup mcp server in  ~/.gemini\antigravity\mcp_config.json
-
