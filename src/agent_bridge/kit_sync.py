@@ -87,7 +87,20 @@ def update_kit(target_dir: str):
                             shutil.copytree(item, dest_item)
                         else:
                             shutil.copy2(item, dest_item)
+                            shutil.copy2(item, dest_item)
                     print(f"{Colors.GREEN}    ✅ Sync {sub} complete.{Colors.ENDC}")
+
+            # Sync Global Configs (including MCP)
+            for config_file in ["mcp_config.json"]:
+                src_conf = repo_agent_dir / config_file
+                dst_conf = target_path / config_file
+                
+                if src_conf.exists():
+                    if not dst_conf.exists():
+                        shutil.copy2(src_conf, dst_conf)
+                        print(f"{Colors.GREEN}    ✅ Init {config_file} from Kit.{Colors.ENDC}")
+                    else:
+                        print(f"{Colors.YELLOW}    🔒 Kept local {config_file} (User Override).{Colors.ENDC}")
 
             print(f"{Colors.GREEN}✨ Antigravity Kit is now up to date!{Colors.ENDC}")
             

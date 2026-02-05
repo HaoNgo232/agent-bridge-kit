@@ -23,39 +23,40 @@ def convert_cursor(source_dir: str, output_unused: str):
             print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
             return
 
-    cursor_dir = Path(".cursor/rules").resolve()
-    print(f"{Colors.HEADER}🏗️  Converting to Cursor .mdc Format...{Colors.ENDC}")
+    cursor_rules_dir = Path(".cursor/rules").resolve()
+    cursor_agents_dir = Path(".cursor/agents").resolve()
+    cursor_skills_dir = Path(".cursor/skills").resolve()
+    
+    print(f"{Colors.HEADER}🏗️  Converting to Cursor Format (Agents, Skills, Rules)...{Colors.ENDC}")
 
-    # 1. PROCESS AGENTS -> .cursor/rules/<agent>.mdc
+    # 1. PROCESS AGENTS -> .cursor/agents/<agent>.md (Subagents)
     agents_src_dir = root_path / "agents"
     if agents_src_dir.exists():
-        cursor_dir.mkdir(parents=True, exist_ok=True)
+        cursor_agents_dir.mkdir(parents=True, exist_ok=True)
         for agent_file in agents_src_dir.glob("*.md"):
             try:
                 meta, body = parse_frontmatter(agent_file.read_text(encoding='utf-8'))
                 desc = meta.get("description", "")
                 if isinstance(desc, list): desc = " ".join(desc)
                 
-                glob = get_glob_for_context(agent_file.stem) or "*"
-                
-                # Cursor .mdc format
                 lines = [
                     "---",
+                    f"name: {agent_file.stem}",
                     f"description: {desc}",
-                    f"globs: {glob}",
                     "---",
                     f"\n{body}"
                 ]
 
-                with open(cursor_dir / f"{agent_file.stem}.mdc", 'w', encoding='utf-8') as f:
+                with open(cursor_agents_dir / f"{agent_file.stem}.md", 'w', encoding='utf-8') as f:
                     f.write("\n".join(lines))
-                print(f"{Colors.BLUE}  🔹 Rule: {agent_file.stem}.mdc{Colors.ENDC}")
+                print(f"{Colors.BLUE}  🔹 Subagent: {agent_file.stem}.md{Colors.ENDC}")
             except Exception as e:
-                print(f"{Colors.RED}  ❌ Failed cursor rule {agent_file.name}: {e}{Colors.ENDC}")
+                print(f"{Colors.RED}  ❌ Failed cursor subagent {agent_file.name}: {e}{Colors.ENDC}")
 
-    # 2. PROCESS SKILLS -> .cursor/rules/<skill>.mdc
+    # 2. PROCESS SKILLS -> .cursor/skills/<skill>.md
     skills_src_dir = root_path / "skills"
     if skills_src_dir.exists():
+        cursor_skills_dir.mkdir(parents=True, exist_ok=True)
         for skill_dir in skills_src_dir.iterdir():
             if not skill_dir.is_dir(): continue
             src_skill_file = skill_dir / "SKILL.md"
@@ -64,21 +65,38 @@ def convert_cursor(source_dir: str, output_unused: str):
                     meta, body = parse_frontmatter(src_skill_file.read_text(encoding='utf-8'))
                     desc = meta.get("description", "")
                     if isinstance(desc, list): desc = " ".join(desc)
-                    
-                    glob = get_glob_for_context(skill_dir.name) or "*"
 
                     lines = [
                         "---",
-                        f"description: Skill - {desc or skill_dir.name}",
-                        f"globs: {glob}",
+                        f"name: {skill_dir.name}",
+                        f"description: {desc or skill_dir.name}",
                         "---",
                         f"\n{body}"
                     ]
 
-                    with open(cursor_dir / f"{skill_dir.name}.mdc", 'w', encoding='utf-8') as f:
+                    with open(cursor_skills_dir / f"{skill_dir.name}.md", 'w', encoding='utf-8') as f:
                         f.write("\n".join(lines))
-                    print(f"{Colors.BLUE}  🔸 Skill: {skill_dir.name}.mdc{Colors.ENDC}")
+                    print(f"{Colors.BLUE}  🔸 Skill: {skill_dir.name}.md{Colors.ENDC}")
                 except Exception as e:
                     print(f"{Colors.RED}  ❌ Failed cursor skill {skill_dir.name}: {e}{Colors.ENDC}")
+
+    # 3. GENERATE GLOBAL INSTRUCTIONS -> .cursor/rules/project-instructions.mdc
+    planner_file = agents_src_dir / "project-planner.md"
+    if planner_file.exists():
+        cursor_rules_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            _, body = parse_frontmatter(planner_file.read_text(encoding='utf-8'))
+            lines = [
+                "---",
+                "description: Global Project Instructions & Architecture",
+                "globs: *",
+                "alwaysApply: true",
+                "---",
+                f"\n# Project Instructions\n\n{body}"
+            ]
+            with open(cursor_rules_dir / "project-instructions.mdc", 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines))
+            print(f"{Colors.BLUE}  📜 Generated .cursor/rules/project-instructions.mdc (Global){Colors.ENDC}")
+        except: pass
 
     print(f"{Colors.GREEN}✅ Cursor conversion complete!{Colors.ENDC}")
