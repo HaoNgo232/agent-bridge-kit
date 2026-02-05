@@ -55,8 +55,24 @@ def get_glob_for_context(context_id: str) -> str:
     }
     return mapping.get(context_id, None)
 
+def get_master_agent_dir() -> Path:
+    """Returns the .agent directory inside the agent-bridge project."""
+    return Path(__file__).resolve().parent.parent.parent / ".agent"
+
 def convert_copilot(source_dir: str, output_unused: str):
     root_path = Path(source_dir).resolve()
+    
+    # Fallback to Master Copy if local source_dir doesn't exist
+    if not root_path.exists() or not (root_path / "agents").exists():
+        master_path = get_master_agent_dir()
+        if master_path.exists():
+            print(f"{Colors.YELLOW}🔔 Local source '{source_dir}' not found or invalid, using Master Copy: {master_path}{Colors.ENDC}")
+            root_path = master_path
+        else:
+            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.YELLOW}👉 Please run 'agent-bridge update-kit' first to initialize your Master Vault from Internet.{Colors.ENDC}")
+            return
+
     # Official GitHub Copilot directories
     github_dir = Path(".github").resolve()
     agents_out_dir = github_dir / "agents"

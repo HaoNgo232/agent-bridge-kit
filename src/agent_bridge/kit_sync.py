@@ -14,9 +14,23 @@ class Colors:
 
 KIT_REPO_URL = "https://github.com/vudovn/antigravity-kit"
 
+def get_master_agent_dir() -> Path:
+    """Returns the .agent directory inside the agent-bridge project."""
+    # File is in src/agent_bridge/kit_sync.py
+    return Path(__file__).resolve().parent.parent.parent / ".agent"
+
 def update_kit(target_dir: str):
     target_path = Path(target_dir).resolve()
-    print(f"{Colors.HEADER}🔄 Updating Antigravity Kit from {KIT_REPO_URL}...{Colors.ENDC}")
+    
+    # Check if target_dir is local .agent and if it exists
+    # If it doesn't exist and we're not in a kit project, we might want to update master
+    master_path = get_master_agent_dir()
+    
+    if not Path(target_dir).exists() and not Path(".git").exists():
+         print(f"{Colors.YELLOW}🔔 Local .agent not found, updating Master Copy instead...{Colors.ENDC}")
+         target_path = master_path
+
+    print(f"{Colors.HEADER}🔄 Updating Antigravity Kit to: {target_path}{Colors.ENDC}")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)

@@ -35,8 +35,25 @@ def parse_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
     except:
         return {}, content
 
+def get_master_agent_dir() -> Path:
+    """Returns the .agent directory inside the agent-bridge project."""
+    # File is in src/agent_bridge/kiro_conv.py
+    return Path(__file__).resolve().parent.parent.parent / ".agent"
+
 def convert_kiro(source_dir: str, output_dir: str):
     root_path = Path(source_dir).resolve()
+    
+    # Fallback to Master Copy if local source_dir doesn't exist
+    if not root_path.exists() or not (root_path / "agents").exists():
+        master_path = get_master_agent_dir()
+        if master_path.exists():
+            print(f"{Colors.YELLOW}🔔 Local source '{source_dir}' not found or invalid, using Master Copy: {master_path}{Colors.ENDC}")
+            root_path = master_path
+        else:
+            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.YELLOW}👉 Please run 'agent-bridge update-kit' first to initialize your Master Vault from Internet.{Colors.ENDC}")
+            return
+
     base_dir = Path(output_dir).resolve()
     
     if not base_dir.exists(): base_dir.mkdir(parents=True)
