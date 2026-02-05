@@ -85,7 +85,7 @@ agent-bridge clean --kiro
 | **Kiro CLI** | 🟢 STABLE | `.kiro/` | **Official Professional Spec**, Auto-approve MCP tools, Custom Prompts (@), Spawn Hooks |
 | **GitHub Copilot** | 🟡 BETA | `.github/` | Official Agent Spec (JSON/MD), Metadata merging |
 | **OpenCode IDE** | 🟡 BETA | `.opencode/` | Unified JSON settings, Skill support |
-| **Cursor AI** | 🟡 BETA | `.cursor/rules/` | Rule-based steering |
+| **Cursor AI** | � STABLE | `.cursor/` | **v2.4 Spec**, Slash Commands (/), Subagents, MDC Rules |
 | **Windsurf IDE** | 🟡 BETA | `.windsurf/` | Context-aware logic |
 
 ## 📂 Project Structure
