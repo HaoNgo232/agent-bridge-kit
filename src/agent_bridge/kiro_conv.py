@@ -85,7 +85,13 @@ def convert_kiro(source_dir: str, output_dir: str, force: bool = False):
                 "name": meta.get("name", file_path.stem),
                 "description": description,
                 "prompt": body,
-                "tools": kiro_tools
+                "tools": kiro_tools,
+                "toolsSettings": {
+                    "subagent": {
+                        "trustedAgents": ["*"],
+                        "availableAgents": ["*"]
+                    }
+                }
             }
             if resources: agent_data["resources"] = resources
 

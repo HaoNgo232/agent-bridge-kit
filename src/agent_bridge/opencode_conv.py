@@ -188,96 +188,79 @@ def convert_opencode(source_dir: str, output_unused: str, force: bool = False):
         except Exception as e:
             print(f"{Colors.RED}  ⚠️ Could not enrich orchestrator permissions: {e}{Colors.ENDC}")
 
-    # 5. GENERATE opencode.json (Global Configuration)
-    opencode_json_path = opencode_dir / "opencode.json"
-    try:
-        import json
-        config = {
-            "permission": {
-                "skill": {
-                    "*": "allow"
-                }
-            },
-            "agent": {
-                "plan": {
-                    "permission": {
-                        "skill": {
-                            "*": "allow"
-                        }
-                    }
-                }
-            }
-        }
-        with open(opencode_json_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
-        print(f"{Colors.BLUE}  📂 Generated opencode.json (Global Config){Colors.ENDC}")
-    except Exception as e:
-        print(f"{Colors.RED}  ❌ Failed to generate opencode.json: {e}{Colors.ENDC}")
+    # 5. INTEGRATE MCP CONFIG INTO opencode.json
+    copy_mcp_opencode(root_path, force)
 
     print(f"{Colors.GREEN}✅ OpenCode conversion complete!{Colors.ENDC}")
 
 def copy_mcp_opencode(root_path: Path, force: bool = False):
-    """Copies MCP config to .opencode/mcp.json"""
+    """Integrates MCP config into .opencode/opencode.json"""
     mcp_src = get_master_agent_dir() / "mcp_config.json"
     if not mcp_src.exists():
          mcp_src = root_path / ".agent" / "mcp_config.json"
 
     if mcp_src.exists():
         opencode_dir = root_path / ".opencode"
-        dest_file = opencode_dir / "mcp.json"
+        opencode_json_path = opencode_dir / "opencode.json"
         
-        # Confirmation for MCP Overwrite (Safe Default)
-        if dest_file.exists() and not force:
-            if not ask_user(f"Found existing '{dest_file}'. Overwrite MCP config?", default=False):
-                print(f"{Colors.YELLOW}🔒 Kept existing OpenCode MCP config.{Colors.ENDC}")
-                return
-
         try:
             import json
             import re
             
+            # Load existing opencode.json or create base config
+            if opencode_json_path.exists():
+                with open(opencode_json_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            else:
+                config = {
+                    "permission": {
+                        "skill": {
+                            "*": "allow"
+                        }
+                    },
+                    "agent": {
+                        "plan": {
+                            "permission": {
+                                "skill": {
+                                    "*": "allow"
+                                }
+                            }
+                        }
+                    }
+                }
+            
+            # Parse MCP source config
             content = mcp_src.read_text(encoding='utf-8')
             content = re.sub(r'//.*', '', content)
             content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
             mcp_data = json.loads(content)
             
-            # OpenCode uses ".opencode/mcp.json" (as we decided for manual import) or opencode.json
-            # Format: { "$schema": "...", "mcp": { "server": { "type": "local", "command": ..., "enabled": true } } }
-            # Our source data has "mcpServers" key. We'll map it to "mcp" key.
-            
-            opencode_data = {
-                "$schema": "https://opencode.ai/config.json",
-                "mcp": {}
-            }
-            
+            # Add MCP config to opencode.json
+            config["mcp"] = {}
             source_servers = mcp_data.get("mcpServers", {})
-            for name, config in source_servers.items():
-                new_config = config.copy()
+            for name, server_config in source_servers.items():
+                new_config = server_config.copy()
                 
-                # Enhanced for OpenCode
+                # Set OpenCode defaults
                 if "type" not in new_config:
-                    new_config["type"] = "local" # Default to local stdio
+                    new_config["type"] = "local"
                 if "enabled" not in new_config:
                     new_config["enabled"] = True
                 
-                # OpenCode Schema Fix: "command" must be an array of strings, "args" is forbidden.
-                # If we have "command" as string and "args" as list, merge them.
+                # Fix command format: merge command + args into single array
                 if "command" in new_config and isinstance(new_config["command"], str):
                     base_cmd = new_config["command"]
                     args = new_config.get("args", [])
-                    # Merge into single list
                     new_config["command"] = [base_cmd] + args
-                    # Remove args if present
                     if "args" in new_config:
                         del new_config["args"]
                         
-                opencode_data["mcp"][name] = new_config
+                config["mcp"][name] = new_config
 
             opencode_dir.mkdir(parents=True, exist_ok=True)
-
-            with open(dest_file, 'w', encoding='utf-8') as f:
-                json.dump(opencode_data, f, indent=4)
+            with open(opencode_json_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2)
                 
-            print(f"{Colors.BLUE}  🔌 Copied to .opencode/mcp.json (Wrapped in 'mcp' key + schema fix){Colors.ENDC}")
+            print(f"{Colors.BLUE}  🔌 Integrated MCP config into opencode.json{Colors.ENDC}")
         except Exception as e:
-            print(f"{Colors.RED}  ❌ Failed to copy MCP config to OpenCode: {e}{Colors.ENDC}")
+            print(f"{Colors.RED}  ❌ Failed to integrate MCP config: {e}{Colors.ENDC}")

@@ -92,16 +92,12 @@ def convert_copilot(source_dir: str, output_unused: str, force: bool = False):
                 desc = meta.get("description", "")
                 if isinstance(desc, list): desc = " ".join(desc)
                 
-                glob = get_glob_for_context(agent_file.stem)
-                
                 lines = [
                     "---",
                     f"name: {name}",
-                    f"description: {desc}"
+                    f"description: {desc}",
+                    "---"
                 ]
-                if glob:
-                    lines.append(f"applyTo: \"{glob}\"")
-                lines.append("---")
                 lines.append("\n# Prompt")
                 lines.append(f"\n{body}")
 
@@ -127,17 +123,14 @@ def convert_copilot(source_dir: str, output_unused: str, force: bool = False):
                     
                     # Copilot skills REQUIRE a 'usage' field in frontmatter
                     usage = meta.get("usage", f"Use this skill for {desc or name} tasks.")
-                    glob = get_glob_for_context(skill_dir.name)
 
                     lines = [
                         "---",
                         f"name: {name}",
                         f"description: {desc or name}",
-                        f"usage: \"{usage}\""
+                        f"usage: {usage}",
+                        "---"
                     ]
-                    if glob:
-                        lines.append(f"applyTo:\n  - \"{glob}\"")
-                    lines.append("---")
                     lines.append("\n# Instructions")
                     lines.append(f"\n{body}")
 

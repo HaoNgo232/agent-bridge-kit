@@ -9,6 +9,16 @@
     "grep",
     "glob"
   ],
+  "toolsSettings": {
+    "subagent": {
+      "trustedAgents": [
+        "*"
+      ],
+      "availableAgents": [
+        "*"
+      ]
+    }
+  },
   "resources": [
     "skill://.kiro/skills/clean-code/SKILL.md",
     "skill://.kiro/skills/game-development/SKILL.md",

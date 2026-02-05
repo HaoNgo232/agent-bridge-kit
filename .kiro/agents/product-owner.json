@@ -8,6 +8,16 @@
     "glob",
     "shell"
   ],
+  "toolsSettings": {
+    "subagent": {
+      "trustedAgents": [
+        "*"
+      ],
+      "availableAgents": [
+        "*"
+      ]
+    }
+  },
   "resources": [
     "skill://.kiro/skills/plan-writing/SKILL.md",
     "skill://.kiro/skills/brainstorming/SKILL.md",

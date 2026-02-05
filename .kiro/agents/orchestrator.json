@@ -10,6 +10,16 @@
     "write",
     "agent"
   ],
+  "toolsSettings": {
+    "subagent": {
+      "trustedAgents": [
+        "*"
+      ],
+      "availableAgents": [
+        "*"
+      ]
+    }
+  },
   "resources": [
     "skill://.kiro/skills/clean-code/SKILL.md",
     "skill://.kiro/skills/parallel-agents/SKILL.md",

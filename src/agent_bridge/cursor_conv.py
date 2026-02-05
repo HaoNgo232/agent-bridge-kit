@@ -69,7 +69,9 @@ def convert_cursor(source_dir: str, output_unused: str):
                     lines = [
                         "---",
                         f"name: {skill_dir.name}",
-                        f"description: {desc or skill_dir.name}",
+                        f"description: {desc or f'{skill_dir.name} skill'}",
+                        "globs:",
+                        "alwaysApply: false",
                         "---",
                         f"\n{body}"
                     ]
@@ -89,7 +91,7 @@ def convert_cursor(source_dir: str, output_unused: str):
             lines = [
                 "---",
                 "description: Global Project Instructions & Architecture",
-                "globs: *",
+                "globs:",
                 "alwaysApply: true",
                 "---",
                 f"\n# Project Instructions\n\n{body}"

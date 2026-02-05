@@ -42,8 +42,14 @@ def convert_windsurf(source_dir: str, output_unused: str, force: bool = False):
                 desc = meta.get("description", "")
                 if isinstance(desc, list): desc = " ".join(desc)
                 
-                # Windsurf modern format (just markdown)
-                content = f"# Agent: {agent_file.stem}\n\n{body}"
+                # Windsurf modern format with frontmatter
+                frontmatter = f"""---
+trigger: always_on
+description: {desc or f"Agent for {agent_file.stem}"}
+---
+
+"""
+                content = f"{frontmatter}# Agent: {agent_file.stem}\n\n{body}"
                 
                 with open(windsurf_dir / f"{agent_file.stem}.md", 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -64,7 +70,14 @@ def convert_windsurf(source_dir: str, output_unused: str, force: bool = False):
                     meta, body = parse_frontmatter(src_skill_file.read_text(encoding='utf-8'))
                     desc = meta.get("description", "")
                     
-                    content = f"# Skill: {skill_dir.name}\n\n{body}"
+                    # Windsurf modern format with frontmatter
+                    frontmatter = f"""---
+trigger: always_on
+description: {desc or f"Skill for {skill_dir.name}"}
+---
+
+"""
+                    content = f"{frontmatter}# Skill: {skill_dir.name}\n\n{body}"
                     
                     with open(windsurf_dir / f"{skill_dir.name}.md", 'w', encoding='utf-8') as f:
                         f.write(content)

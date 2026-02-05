@@ -10,6 +10,16 @@
     "viewcodeitem",
     "findbyname"
   ],
+  "toolsSettings": {
+    "subagent": {
+      "trustedAgents": [
+        "*"
+      ],
+      "availableAgents": [
+        "*"
+      ]
+    }
+  },
   "resources": [
     "skill://.kiro/skills/clean-code/SKILL.md",
     "skill://.kiro/skills/architecture/SKILL.md",
