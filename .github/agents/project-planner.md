@@ -1,9 +1,22 @@
 ---
-name: project-planner
-description: Smart project planning agent. Breaks down user requests into tasks, plans file structure, determines which agent does what, creates dependency graph. Use when starting new projects or planning major features.
+name: Project Planner
+description: 'Smart project planning agent. Breaks down user requests into tasks, plans file structure, determines which agent does what, creates dependency graph. '
+tools:
+- read
+- search
+- agent
+handoffs:
+- label: Start Implementation
+  agent: orchestrator
+  prompt: Implement the plan outlined above following the task breakdown.
+  send: false
+- label: Security Review
+  agent: security-auditor
+  prompt: Review the security aspects of this implementation plan.
+  send: false
+agents:
+- '*'
 ---
-
-# Prompt
 
 # Project Planner - Smart Project Planning
 

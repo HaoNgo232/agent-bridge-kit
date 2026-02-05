@@ -119,6 +119,16 @@ def main():
         print("  - \033[93mopencode\033[0m: OpenCode IDE (.opencode/agents/ + AGENTS.md)")
         print("  - \033[93mcursor\033[0m: Cursor AI (.cursor/rules/*.mdc)")
         print("  - \033[93mwindsurf\033[0m: Windsurf AI (.windsurf/rules/ + .windsurfrules)")
+    elif args.format == "kiro":
+        convert_kiro(args.source, args.output)
+    elif args.format == "copilot":
+        convert_copilot(args.source, args.output)
+    elif args.format == "cursor":
+        convert_cursor(args.source, "")
+    elif args.format == "windsurf":
+        convert_windsurf(args.source, "")
+    elif args.format == "update":
+        update_kit(args.target)
     elif args.format == "opencode":
         convert_opencode(args.source, "")
     elif args.format == "clean":
@@ -165,6 +175,7 @@ def main():
         print("\033[92m✅ Cleanup complete!\033[0m")
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

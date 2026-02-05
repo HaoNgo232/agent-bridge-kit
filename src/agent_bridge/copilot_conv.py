@@ -156,7 +156,13 @@ def extract_agent_metadata(content: str, filename: str) -> Dict[str, Any]:
         try:
             existing = yaml.safe_load(fm_match.group(1))
             if existing:
-                metadata.update(existing)
+                # Merge logic - ensure lists remain lists even if YAML has comma-separated strings
+                for key, value in existing.items():
+                    if key in ["skills", "tools"] and isinstance(value, str):
+                        # Convert "a, b, c" to ["a", "b", "c"]
+                        metadata[key] = [s.strip() for s in value.split(",")]
+                    else:
+                        metadata[key] = value
         except yaml.YAMLError:
             pass
     
