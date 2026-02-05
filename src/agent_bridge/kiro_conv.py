@@ -307,9 +307,149 @@ def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
         return False
 
 
+def copy_scripts_with_permissions(source_dir: Path, dest_dir: Path) -> bool:
+    """
+    Copy scripts directory và preserve executable permissions.
+    
+    Args:
+        source_dir: Thư mục scripts nguồn (.agent/scripts)
+        dest_dir: Thư mục scripts đích (.kiro/scripts)
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        for item in source_dir.iterdir():
+            dest_item = dest_dir / item.name
+            
+            if item.is_dir():
+                shutil.copytree(item, dest_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest_item)
+                
+                # Preserve executable permissions cho Python scripts và shell scripts
+                if item.suffix in ['.py', '.sh', '.bash', '.zsh']:
+                    # Get current permissions và add execute bit
+                    current_mode = item.stat().st_mode
+                    os.chmod(dest_item, current_mode | 0o111)  # Add execute for user, group, other
+        
+        return True
+    except Exception as e:
+        print(f"  Error copying scripts: {e}")
+        return False
+
+
+def copy_rules(source_dir: Path, dest_dir: Path) -> bool:
+    """
+    Copy rules directory.
+    
+    Args:
+        source_dir: Thư mục rules nguồn (.agent/rules)
+        dest_dir: Thư mục rules đích (.kiro/rules)
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        for item in source_dir.iterdir():
+            dest_item = dest_dir / item.name
+            
+            if item.is_dir():
+                shutil.copytree(item, dest_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest_item)
+        
+        return True
+    except Exception as e:
+        print(f"  Error copying rules: {e}")
+        return False
+
+
+def copy_shared_resources(source_dir: Path, dest_dir: Path) -> bool:
+    """
+    Copy shared resources directory.
+    
+    Args:
+        source_dir: Thư mục .shared nguồn (.agent/.shared)
+        dest_dir: Thư mục .shared đích (.kiro/.shared)
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        for item in source_dir.iterdir():
+            dest_item = dest_dir / item.name
+            
+            if item.is_dir():
+                shutil.copytree(item, dest_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest_item)
+        
+        return True
+    except Exception as e:
+        print(f"  Error copying shared resources: {e}")
+        return False
+
+
+def copy_architecture_doc(source_file: Path, dest_file: Path) -> bool:
+    """
+    Copy ARCHITECTURE.md file.
+    
+    Args:
+        source_file: File ARCHITECTURE.md nguồn
+        dest_file: File ARCHITECTURE.md đích
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, dest_file)
+        return True
+    except Exception as e:
+        print(f"  Error copying ARCHITECTURE.md: {e}")
+        return False
+
+
+def copy_mcp_config(source_file: Path, dest_file: Path) -> bool:
+    """
+    Copy MCP config file vào Kiro settings.
+    
+    Args:
+        source_file: File mcp_config.json nguồn
+        dest_file: File mcp.json đích (trong .kiro/settings/)
+    
+    Returns:
+        True nếu thành công, False nếu có lỗi
+    """
+    try:
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, dest_file)
+        return True
+    except Exception as e:
+        print(f"  Error copying MCP config: {e}")
+        return False
+
+
 def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) -> Dict[str, Any]:
     """
     Main conversion function for Kiro CLI format.
+    
+    Converts 100% của .agent structure sang Kiro format:
+    - agents/ → .kiro/agents/ (JSON format)
+    - skills/ → .kiro/skills/ (full copy)
+    - workflows/ → .kiro/steering/ (remove frontmatter)
+    - scripts/ → .kiro/scripts/ (với executable permissions)
+    - rules/ → .kiro/rules/
+    - .shared/ → .kiro/.shared/
+    - ARCHITECTURE.md → .kiro/ARCHITECTURE.md
+    - mcp_config.json → .kiro/settings/mcp.json
     
     Args:
         source_root: Path to project root containing .agent/
@@ -319,16 +459,45 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     Returns:
         Dict with conversion statistics
     """
-    stats = {"agents": 0, "skills": 0, "steering": 0, "errors": []}
+    stats = {
+        "agents": 0, 
+        "skills": 0, 
+        "steering": 0, 
+        "scripts": 0,
+        "rules": 0,
+        "shared": 0,
+        "architecture": 0,
+        "mcp": 0,
+        "errors": []
+    }
     
-    agents_src = source_root / ".agent" / "agents"
-    agents_dest = dest_root / ".kiro" / "agents"
+    # Define source và destination paths
+    agent_root = source_root / ".agent"
+    kiro_root = dest_root / ".kiro"
     
-    skills_src = source_root / ".agent" / "skills"
-    skills_dest = dest_root / ".kiro" / "skills"
+    agents_src = agent_root / "agents"
+    agents_dest = kiro_root / "agents"
     
-    workflows_src = source_root / ".agent" / "workflows"
-    steering_dest = dest_root / ".kiro" / "steering"
+    skills_src = agent_root / "skills"
+    skills_dest = kiro_root / "skills"
+    
+    workflows_src = agent_root / "workflows"
+    steering_dest = kiro_root / "steering"
+    
+    scripts_src = agent_root / "scripts"
+    scripts_dest = kiro_root / "scripts"
+    
+    rules_src = agent_root / "rules"
+    rules_dest = kiro_root / "rules"
+    
+    shared_src = agent_root / ".shared"
+    shared_dest = kiro_root / ".shared"
+    
+    architecture_src = agent_root / "ARCHITECTURE.md"
+    architecture_dest = kiro_root / "ARCHITECTURE.md"
+    
+    mcp_src = agent_root / "mcp_config.json"
+    mcp_dest = kiro_root / "settings" / "mcp.json"
     
     # Convert agents to JSON
     if agents_src.exists():
@@ -372,12 +541,85 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
             else:
                 stats["errors"].append(f"steering:{workflow_file.name}")
     
+    # Copy scripts với executable permissions
+    if scripts_src.exists():
+        if verbose:
+            print("Copying scripts with executable permissions...")
+        
+        if copy_scripts_with_permissions(scripts_src, scripts_dest):
+            stats["scripts"] = len(list(scripts_src.iterdir()))
+            if verbose:
+                print(f"  ✓ {stats['scripts']} script(s) copied")
+        else:
+            stats["errors"].append("scripts:copy_failed")
+    
+    # Copy rules
+    if rules_src.exists():
+        if verbose:
+            print("Copying rules...")
+        
+        if copy_rules(rules_src, rules_dest):
+            stats["rules"] = len(list(rules_src.iterdir()))
+            if verbose:
+                print(f"  ✓ {stats['rules']} rule(s) copied")
+        else:
+            stats["errors"].append("rules:copy_failed")
+    
+    # Copy shared resources
+    if shared_src.exists():
+        if verbose:
+            print("Copying shared resources...")
+        
+        if copy_shared_resources(shared_src, shared_dest):
+            stats["shared"] = len(list(shared_src.iterdir()))
+            if verbose:
+                print(f"  ✓ {stats['shared']} shared resource(s) copied")
+        else:
+            stats["errors"].append("shared:copy_failed")
+    
+    # Copy ARCHITECTURE.md
+    if architecture_src.exists():
+        if verbose:
+            print("Copying ARCHITECTURE.md...")
+        
+        if copy_architecture_doc(architecture_src, architecture_dest):
+            stats["architecture"] = 1
+            if verbose:
+                print(f"  ✓ ARCHITECTURE.md copied")
+        else:
+            stats["errors"].append("architecture:copy_failed")
+    
+    # Copy MCP config
+    if mcp_src.exists():
+        if verbose:
+            print("Copying MCP configuration...")
+        
+        if copy_mcp_config(mcp_src, mcp_dest):
+            stats["mcp"] = 1
+            if verbose:
+                print(f"  ✓ MCP config copied to settings/mcp.json")
+        else:
+            stats["errors"].append("mcp:copy_failed")
+    
+    # Final summary
     if verbose:
-        print(f"\nKiro conversion complete: {stats['agents']} agents, {stats['skills']} skills, {stats['steering']} steering files")
+        print(f"\n{Colors.GREEN}✨ Kiro conversion complete (100% coverage):{Colors.ENDC}")
+        print(f"  • {stats['agents']} agents")
+        print(f"  • {stats['skills']} skills")
+        print(f"  • {stats['steering']} steering files")
+        print(f"  • {stats['scripts']} scripts (with exec permissions)")
+        print(f"  • {stats['rules']} rules")
+        print(f"  • {stats['shared']} shared resources")
+        print(f"  • {stats['architecture']} architecture doc")
+        print(f"  • {stats['mcp']} MCP config")
+        
         if stats["errors"]:
-            print(f"  Errors: {len(stats['errors'])}")
+            print(f"\n{Colors.RED}  ⚠️  Errors: {len(stats['errors'])}{Colors.ENDC}")
+            for error in stats["errors"]:
+                print(f"    - {error}")
     
     return stats
+
 
 
 # =============================================================================

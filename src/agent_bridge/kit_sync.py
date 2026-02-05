@@ -87,7 +87,6 @@ def update_kit(target_dir: str):
                             shutil.copytree(item, dest_item)
                         else:
                             shutil.copy2(item, dest_item)
-                            shutil.copy2(item, dest_item)
                     print(f"{Colors.GREEN}    ✅ Sync {sub} complete.{Colors.ENDC}")
 
             # Sync Global Configs (including MCP)
