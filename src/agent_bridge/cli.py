@@ -24,6 +24,86 @@ CUSTOM_STYLE = Style([
     ('checkbox-selected', 'fg:#00d4ff bold'),    # Checkbox đã chọn
 ])
 
+def _tui_add_vault(has_local_agent: bool) -> str:
+    """Interactive TUI flow for adding a custom vault. Returns source_choice or None to cancel."""
+    from .vault import VaultManager
+
+    print(f"\n{Colors.CYAN}  Add a Knowledge Vault{Colors.ENDC}\n")
+
+    # Vault URL
+    vault_url = questionary.text(
+        "Git URL or local path:",
+        instruction="(e.g. https://github.com/yourorg/ai-agents or /path/to/local)",
+        style=CUSTOM_STYLE,
+    ).ask()
+
+    if not vault_url:
+        print(f"{Colors.YELLOW}Cancelled.{Colors.ENDC}")
+        return None
+
+    # Auto-suggest name from URL
+    default_name = vault_url.rstrip("/").split("/")[-1].replace(".git", "")
+    vault_name = questionary.text(
+        "Vault name (unique ID):",
+        default=default_name,
+        style=CUSTOM_STYLE,
+    ).ask()
+
+    if not vault_name:
+        print(f"{Colors.YELLOW}Cancelled.{Colors.ENDC}")
+        return None
+
+    # Optional description
+    vault_desc = questionary.text(
+        "Description (optional):",
+        default="",
+        style=CUSTOM_STYLE,
+    ).ask() or ""
+
+    # Priority
+    vault_priority = questionary.text(
+        "Priority (lower = higher, default 100):",
+        default="100",
+        style=CUSTOM_STYLE,
+    ).ask()
+    try:
+        priority = int(vault_priority)
+    except (ValueError, TypeError):
+        priority = 100
+
+    # Register + Sync
+    vm = VaultManager()
+    try:
+        vm.add(vault_name, vault_url, vault_desc, priority)
+        print(f"\n  {Colors.GREEN}Vault '{vault_name}' registered.{Colors.ENDC}")
+    except ValueError as e:
+        print(f"  {Colors.YELLOW}{e}{Colors.ENDC}")
+        # Vault already exists — still usable, continue
+
+    print(f"  {Colors.CYAN}Syncing vault...{Colors.ENDC}")
+    results = vm.sync(name=vault_name)
+    vault_result = results.get(vault_name, {})
+    if vault_result.get("status") == "ok":
+        print(f"  {Colors.GREEN}Synced: {vault_result.get('agents', 0)} agents, {vault_result.get('skills', 0)} skills{Colors.ENDC}\n")
+    else:
+        print(f"  {Colors.RED}Sync issue: {vault_result.get('status', 'unknown')}{Colors.ENDC}")
+        print(f"  {Colors.YELLOW}Continuing anyway — you can retry with 'agent-bridge vault sync'{Colors.ENDC}\n")
+
+    # Now ask how to use it
+    if has_local_agent:
+        return questionary.select(
+            "How to use this vault with your project?",
+            choices=[
+                questionary.Choice("Merge vault + project (project wins)", value="merge"),
+                questionary.Choice("Replace project agents with vault", value="vault"),
+                questionary.Choice("Keep project agents only", value="project"),
+            ],
+            style=CUSTOM_STYLE,
+        ).ask()
+    else:
+        return "vault"
+
+
 def _get_vault_agent_dir() -> Path:
     """Lấy đường dẫn thư mục agent từ bộ nhớ đệm của vault chính."""
     try:
@@ -207,7 +287,7 @@ def _main_inner():
         if use_interactive:
             print(f"\n{Colors.CYAN}Agent Bridge - Interactive Setup{Colors.ENDC}\n")
             
-            # 1. Agent source selection
+# 1. Agent source selection
             has_local_agent = agent_dir.exists()
             
             if has_local_agent:
@@ -217,17 +297,70 @@ def _main_inner():
                         questionary.Choice("Use project agents (.agent/)", value="project"),
                         questionary.Choice("Merge vault + project (project wins)", value="merge"),
                         questionary.Choice("Replace with vault agents", value="vault"),
+                        Separator(),
+                        questionary.Choice("Add your own vault first...", value="add_vault"),
                     ],
                     style=CUSTOM_STYLE
                 ).ask()
             else:
-                # No local .agent — auto-fetch from vault
-                print(f"  {Colors.YELLOW}No .agent/ found locally. Fetching from vault...{Colors.ENDC}")
-                source_choice = "vault"
+                source_choice = questionary.select(
+                    "No .agent/ found locally. Choose a source:",
+                    choices=[
+                        questionary.Choice("Use default vault (Antigravity Kit)", value="vault"),
+                        questionary.Choice("Add your own vault...", value="add_vault"),
+                    ],
+                    style=CUSTOM_STYLE
+                ).ask()
             
             if not source_choice:
                 print(f"{Colors.YELLOW}Cancelled.{Colors.ENDC}")
                 return
+            
+            # 1b. Handle "Add your own vault" flow
+            if source_choice == "add_vault":
+                source_choice = _tui_add_vault(has_local_agent)
+                if not source_choice:
+                    return
+            
+            # 2. Format selection (multi-select with sensible defaults) offer to add one
+            if source_choice in ("vault", "merge"):
+                try:
+                    from .vault import VaultManager
+                    vm = VaultManager()
+                    if not vm.enabled_vaults:
+                        print(f"\n  {Colors.YELLOW}No vaults registered yet.{Colors.ENDC}")
+                        add_vault = questionary.confirm(
+                            "Add a vault source now?",
+                            default=True,
+                            style=CUSTOM_STYLE
+                        ).ask()
+                        
+                        if add_vault:
+                            vault_url = questionary.text(
+                                "Git URL or local path:",
+                                default="https://github.com/vudovn/antigravity-kit",
+                                style=CUSTOM_STYLE
+                            ).ask()
+                            
+                            if vault_url:
+                                vault_name = questionary.text(
+                                    "Vault name:",
+                                    default=vault_url.rstrip("/").split("/")[-1].replace(".git", ""),
+                                    style=CUSTOM_STYLE
+                                ).ask()
+                                
+                                if vault_name:
+                                    try:
+                                        vm.add(vault_name, vault_url)
+                                        print(f"  {Colors.GREEN}Vault '{vault_name}' registered. Syncing...{Colors.ENDC}")
+                                        vm.sync(name=vault_name)
+                                    except ValueError as e:
+                                        print(f"  {Colors.YELLOW}{e}{Colors.ENDC}")
+                        else:
+                            print(f"{Colors.YELLOW}Cannot proceed without vault. Cancelled.{Colors.ENDC}")
+                            return
+                except ImportError:
+                    pass
             
             # 2. Format selection (multi-select with sensible defaults)
             format_choices = questionary.checkbox(

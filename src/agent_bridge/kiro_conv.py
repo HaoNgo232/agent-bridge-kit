@@ -250,30 +250,17 @@ def generate_kiro_agent_json(agent_slug: str, metadata: Dict[str, Any], mcp_serv
         "description": metadata.get("description") or f"Specialized agent for {agent_slug.replace('-', ' ')}",
         "prompt": metadata.get("prompt", ""),
         
-        # Tools allowed for the agent
+        # Tools available to the agent (Kiro spec: tools)
         "tools": base_tools,
         
-        # Tools allowed without prompting (Auto-approve)
+        # Tools allowed without confirmation (Kiro spec: allowedTools)
         "allowedTools": allowed_tools,
         
-        # Integration with MCP
-        "includeMcpJson": True,
-        
-        # Persistent knowledge (Steering & Skills)
+        # Persistent knowledge files (Kiro spec: resources with file:// URIs)
         "resources": [
             "file://.kiro/steering/**/*.md",
             "file://.kiro/skills/**/SKILL.md"
         ],
-        
-        # Lifecycle Hooks
-        "hooks": {
-            "agentSpawn": [
-                {
-                    "command": "git status --short 2>/dev/null || true",
-                    "timeout_ms": 3000
-                }
-            ]
-        }
     }
     
     # Build toolsSettings for granular control (Official Spec)
@@ -413,16 +400,19 @@ def convert_workflow_to_prompt(source_path: Path, dest_path: Path) -> bool:
 
 
 def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
-
-    """Convert workflow to Kiro steering file."""
+    """Convert workflow to Kiro steering file with proper inclusion frontmatter."""
     try:
         content = source_path.read_text(encoding="utf-8")
         
         # Remove frontmatter if exists
         content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL).strip()
         
+        # Kiro steering files require inclusion frontmatter
+        # Default to 'always' for workflow-derived steering
+        steering_frontmatter = "---\ninclusion: always\n---\n\n"
+        
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        dest_path.write_text(content_clean, encoding="utf-8")
+        dest_path.write_text(f"{steering_frontmatter}{content_clean}\n", encoding="utf-8")
         return True
     except Exception as e:
         print(f"  Error converting workflow {source_path.name}: {e}")
@@ -431,10 +421,10 @@ def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
 
 def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
     """
-    Copy rules files into Kiro steering directory.
+    Copy rules files into Kiro steering directory with proper frontmatter.
     
-    Per Kiro spec, rules (e.g. GEMINI.md) belong in .kiro/steering/
-    as persistent project knowledge.
+    Per Kiro spec, steering files need inclusion frontmatter to control
+    when they are loaded. Rules are treated as 'always' inclusion by default.
     
     Args:
         source_dir: Source rules directory (.agent/rules)
@@ -446,10 +436,28 @@ def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
         
+        STEERING_FRONTMATTER = "---\ninclusion: always\n---\n\n"
+        
         for item in source_dir.iterdir():
             if item.is_file() and item.suffix == '.md':
                 dest_item = dest_dir / item.name
-                shutil.copy2(item, dest_item)
+                content = item.read_text(encoding="utf-8")
+                
+                # Check if content already has frontmatter
+                has_fm = re.match(r'^---\n', content)
+                if has_fm:
+                    # Check if it already has inclusion field
+                    fm_match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+                    if fm_match and 'inclusion' in fm_match.group(1):
+                        # Already has proper steering frontmatter, copy as-is
+                        dest_item.write_text(content, encoding="utf-8")
+                    else:
+                        # Has frontmatter but no inclusion — strip and add proper one
+                        content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
+                        dest_item.write_text(f"{STEERING_FRONTMATTER}{content_clean}", encoding="utf-8")
+                else:
+                    # No frontmatter at all — add steering frontmatter
+                    dest_item.write_text(f"{STEERING_FRONTMATTER}{content}", encoding="utf-8")
         
         return True
     except Exception as e:
@@ -459,10 +467,10 @@ def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
 
 def copy_architecture_to_steering(source_file: Path, dest_dir: Path) -> bool:
     """
-    Copy ARCHITECTURE.md into Kiro steering directory.
+    Copy ARCHITECTURE.md into Kiro steering directory with inclusion frontmatter.
     
     Per Kiro spec, architecture docs belong in .kiro/steering/
-    as project knowledge/conventions.
+    as project knowledge/conventions. They use 'always' inclusion.
     
     Args:
         source_file: Source ARCHITECTURE.md file
@@ -474,7 +482,14 @@ def copy_architecture_to_steering(source_file: Path, dest_dir: Path) -> bool:
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest_file = dest_dir / source_file.name
-        shutil.copy2(source_file, dest_file)
+        
+        content = source_file.read_text(encoding="utf-8")
+        
+        # Add steering frontmatter if not present
+        if not re.match(r'^---\n.*?inclusion.*?\n---', content, re.DOTALL):
+            content = f"---\ninclusion: always\n---\n\n{content}"
+        
+        dest_file.write_text(content, encoding="utf-8")
         return True
     except Exception as e:
         print(f"  Error copying ARCHITECTURE.md to steering: {e}")

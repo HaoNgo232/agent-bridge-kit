@@ -207,9 +207,17 @@ def convert_skill_to_cursor(source_dir: Path, rules_dest: Path, skills_dest: Pat
         skill_folder = skills_dest / skill_name
         skill_folder.mkdir(parents=True, exist_ok=True)
         
-        description = SKILLS_TOOLKIT_MAP.get(skill_name, f"Expert toolkit for {skill_name}")
+        # Agent Skills spec: name must be lowercase alphanumeric + hyphens, max 64 chars
+        normalized_name = re.sub(r'[^a-z0-9-]', '-', skill_name.lower())[:64].strip('-')
         
-        skill_header = f"---\nname: {skill_name}\ndescription: {description}\n---\n\n"
+        # Try to extract description from skill content first
+        desc_match = re.search(r'^(?:>|Description:|Purpose:)\s*(.+?)$', content_clean, re.MULTILINE | re.IGNORECASE)
+        if desc_match:
+            description = desc_match.group(1).strip()[:1024]
+        else:
+            description = SKILLS_TOOLKIT_MAP.get(skill_name, f"Expert toolkit for {skill_name.replace('-', ' ')}")
+        
+        skill_header = f"---\nname: {normalized_name}\ndescription: {description}\n---\n\n"
         (skill_folder / "SKILL.md").write_text(f"{skill_header}{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
         
         # Copy other files to skill folder as resources
@@ -240,7 +248,10 @@ def convert_workflow_to_cursor_skill(source_path: Path, skills_dest: Path) -> bo
         # Normalize content for Cursor Skill
         content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
         
-        header = f"---\nname: {name}\ndescription: {description}\n---\n\n"
+        # Agent Skills spec: name must be lowercase alphanumeric + hyphens, max 64 chars
+        normalized_name = re.sub(r'[^a-z0-9-]', '-', name.lower())[:64].strip('-')
+        
+        header = f"---\nname: {normalized_name}\ndescription: {description}\n---\n\n"
         (skill_folder / "SKILL.md").write_text(f"{header}{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
         return True
     except Exception as e:

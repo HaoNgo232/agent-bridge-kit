@@ -269,7 +269,14 @@ def convert_agent_to_copilot(source_path: Path, dest_path: Path) -> bool:
         content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
         
         # Build output with new frontmatter
-        output = f"---\n{frontmatter}---\n\n{content_clean.strip()}\n"
+        # Copilot spec: prompt (body after frontmatter) max 30,000 characters
+        COPILOT_PROMPT_MAX_CHARS = 30000
+        body = content_clean.strip()
+        if len(body) > COPILOT_PROMPT_MAX_CHARS:
+            truncate_suffix = "\n\n... (truncated to fit Copilot 30K char limit)\n"
+            body = body[:COPILOT_PROMPT_MAX_CHARS - len(truncate_suffix)] + truncate_suffix
+        
+        output = f"---\n{frontmatter}---\n\n{body}\n"
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -299,10 +306,16 @@ def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
             title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
             skill_title = title_match.group(1) if title_match else skill_name.replace("-", " ").title()
             
-            # Generate skill frontmatter
+            # Generate skill frontmatter (Agent Skills spec: name must be lowercase + hyphens)
+            normalized_name = re.sub(r'[^a-z0-9-]', '-', skill_name.lower())[:64].strip('-')
+            
+            # Try to extract description from content
+            desc_match = re.search(r'^(?:>|Description:|Purpose:)\s*(.+?)$', content_clean, re.MULTILINE | re.IGNORECASE)
+            skill_description = desc_match.group(1).strip()[:1024] if desc_match else f"Skill documentation for {skill_name.replace('-', ' ')}"
+            
             frontmatter = {
-                "name": skill_title,
-                "description": f"Skill documentation for {skill_name.replace('-', ' ')}",
+                "name": normalized_name,
+                "description": skill_description,
             }
             
             # Remove existing frontmatter
