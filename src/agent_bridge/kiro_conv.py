@@ -417,7 +417,7 @@ def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
         content = source_path.read_text(encoding="utf-8")
         
         # Remove frontmatter if exists
-        content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
+        content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL).strip()
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(content_clean, encoding="utf-8")
@@ -590,12 +590,13 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     Converts theo Kiro official spec (https://kiro.dev/docs/cli/):
     - agents/ → .kiro/agents/ (JSON format)
     - skills/ → .kiro/skills/ (full copy)
-    - workflows/ → .kiro/steering/ (remove frontmatter)
-    - rules/ → .kiro/steering/ (GEMINI.md và các rules khác)
-    - ARCHITECTURE.md → .kiro/steering/ (project knowledge)
+    - workflows/ → .kiro/prompts/ (custom commands với @)
+    - rules/ → .kiro/steering/ (system prompts như GEMINI.md)
     - mcp_config.json → .kiro/settings/mcp.json
     
-    NOTE: scripts/ và .shared/ KHÔNG được convert vì không thuộc Kiro spec.
+    NOTE: 
+    - scripts/, .shared/, ARCHITECTURE.md KHÔNG được convert (không thuộc Kiro spec)
+    - ARCHITECTURE.md là documentation, không phải system prompt
     
     Args:
         source_root: Path to project root containing .agent/
@@ -608,6 +609,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     stats = {
         "agents": 0, 
         "skills": 0, 
+        "prompts": 0,
         "steering": 0,
         "mcp": 0,
         "warnings": [],
@@ -682,25 +684,11 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         for workflow_file in workflows_src.glob("*.md"):
             dest_file = prompts_dest / workflow_file.name
             if convert_workflow_to_prompt(workflow_file, dest_file):
-                stats["steering"] += 1 # Count as steering/prompt
+                stats["prompts"] += 1
                 if verbose:
                     print(f"  ✓ @{workflow_file.stem}")
             else:
                 stats["errors"].append(f"prompt:{workflow_file.name}")
-
-    # Convert workflows to steering (backup/knowledge)
-    if workflows_src.exists():
-        if verbose:
-            print("Converting workflows to steering...")
-        
-        for workflow_file in workflows_src.glob("*.md"):
-            dest_file = steering_dest / workflow_file.name
-            if convert_workflow_to_steering(workflow_file, dest_file):
-                stats["steering"] += 1
-                if verbose:
-                    print(f"  ✓ {workflow_file.name}")
-            else:
-                stats["errors"].append(f"steering:{workflow_file.name}")
     
     # Copy rules to steering (theo Kiro spec)
     if rules_src.exists():
@@ -714,18 +702,6 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
                 print(f"  ✓ {rule_count} rule file(s) → steering/")
         else:
             stats["errors"].append("rules:copy_failed")
-    
-    # Copy ARCHITECTURE.md to steering (theo Kiro spec)
-    if architecture_src.exists():
-        if verbose:
-            print("Copying ARCHITECTURE.md to steering...")
-        
-        if copy_architecture_to_steering(architecture_src, steering_dest):
-            stats["steering"] += 1
-            if verbose:
-                print(f"  ✓ ARCHITECTURE.md → steering/")
-        else:
-            stats["errors"].append("architecture:copy_failed")
     
     # Copy MCP config
     if mcp_src.exists():
@@ -765,7 +741,8 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         print(f"\n{Colors.GREEN}✨ Kiro conversion complete (Official Spec):{Colors.ENDC}")
         print(f"  • {stats['agents']} agents")
         print(f"  • {stats['skills']} skills")
-        print(f"  • {stats['steering']} steering files (workflows + rules + architecture)")
+        print(f"  • {stats['prompts']} prompts (@workflows)")
+        print(f"  • {stats['steering']} steering files (system prompts)")
         print(f"  • {stats['mcp']} MCP config")
         
         if stats["warnings"]:
@@ -806,7 +783,7 @@ def convert_kiro(source_dir: str, output_dir: str, force: bool = False):
 
     # Confirmation for Kiro Overwrite
     if (Path(".").resolve() / ".kiro").exists() and not force:
-        if not ask_user(f"Found existing '.kiro'. Update agents & workflows?", default=True):
+        if not ask_user(f"Found existing '.kiro'. Update configuration (agents, skills, prompts, steering)?", default=True):
              print(f"{Colors.YELLOW}⏭️  Skipping Kiro update.{Colors.ENDC}")
              return
 
@@ -826,14 +803,20 @@ def copy_mcp_kiro(root_path: Path, force: bool = False):
     if install_mcp_for_ide(source_root, root_path, "kiro"):
         print(f"{Colors.BLUE}  🔌 Integrated MCP config into Kiro settings.{Colors.ENDC}")
 
-def init_kiro(project_path: Path = None) -> bool:
-    # Existing user function...
+def init_kiro(project_path: Path = None, force: bool = False) -> bool:
     """Initialize Kiro configuration in project."""
     project_path = project_path or Path.cwd()
     
     if not (project_path / ".agent").exists():
         print("Error: .agent directory not found. Run 'agent-bridge update' first.")
         return False
+    
+    # Check for existing .kiro directory
+    kiro_dir = project_path / ".kiro"
+    if kiro_dir.exists() and not force:
+        if not ask_user(f"Found existing '.kiro'. Update configuration?", default=True):
+            print(f"{Colors.YELLOW}⏭️  Skipping Kiro initialization.{Colors.ENDC}")
+            return False
     
     stats = convert_to_kiro(project_path, project_path)
     return len(stats["errors"]) == 0

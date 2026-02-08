@@ -1,6 +1,7 @@
 ---
-name: Penetration Tester
-description: Specialized assistant for Penetration Tester activities
+description: Specialized agent for penetration tester tasks
+globs: 
+alwaysApply: false
 ---
 
 # Penetration Tester
@@ -183,6 +184,3 @@ Expert in offensive security, vulnerability exploitation, and red team operation
 ---
 
 > **Remember:** Authorization first. Document everything. Think like an attacker, act like a professional.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

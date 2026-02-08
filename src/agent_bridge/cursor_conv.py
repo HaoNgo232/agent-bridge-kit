@@ -199,7 +199,7 @@ def convert_skill_to_cursor(source_dir: Path, rules_dest: Path, skills_dest: Pat
             )
             rules_dest.mkdir(parents=True, exist_ok=True)
             dest_file = rules_dest / f"{skill_name}.mdc"
-            dest_file.write_text(f"{frontmatter}\n\n{content_clean}{CREDIT_LINE}", encoding="utf-8")
+            dest_file.write_text(f"{frontmatter}\n\n{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
             return True
 
         # OPTION B: Convert to Cursor Skill (On-demand/Slash command)
@@ -209,7 +209,7 @@ def convert_skill_to_cursor(source_dir: Path, rules_dest: Path, skills_dest: Pat
         description = SKILLS_TOOLKIT_MAP.get(skill_name, f"Expert toolkit for {skill_name}")
         
         skill_header = f"---\nname: {skill_name}\ndescription: {description}\n---\n\n"
-        (skill_folder / "SKILL.md").write_text(f"{skill_header}{content_clean}{CREDIT_LINE}", encoding="utf-8")
+        (skill_folder / "SKILL.md").write_text(f"{skill_header}{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
         
         # Copy other files to skill folder as resources
         for item in source_dir.iterdir():
@@ -240,7 +240,7 @@ def convert_workflow_to_cursor_skill(source_path: Path, skills_dest: Path) -> bo
         content_clean = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
         
         header = f"---\nname: {name}\ndescription: {description}\n---\n\n"
-        (skill_folder / "SKILL.md").write_text(f"{header}{content_clean}{CREDIT_LINE}", encoding="utf-8")
+        (skill_folder / "SKILL.md").write_text(f"{header}{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
         return True
     except Exception as e:
         print(f"  Error converting workflow {source_path.name}: {e}")

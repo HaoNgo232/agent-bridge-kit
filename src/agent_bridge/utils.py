@@ -22,7 +22,7 @@ def ask_user(question: str, default: bool = True) -> bool:
     choices = " [Y/n]: " if default else " [y/N]: "
     while True:
         print(f"{Colors.YELLOW}❓ {question}{choices}{Colors.ENDC}", end='', flush=True)
-        choice = input().lower()
+        choice = input().strip().lower()
         if not choice:
             return default
         if choice in ['y', 'yes']:

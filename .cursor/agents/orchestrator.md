@@ -1,6 +1,7 @@
 ---
-name: Orchestrator
-description: High-level coordinator for complex, multi-step tasks
+description: USE WHEN coordinating multiple tasks or managing complex workflows
+globs: 
+alwaysApply: false
 ---
 
 # Orchestrator - Native Multi-Agent Coordination
@@ -411,6 +412,3 @@ Use built-in agents for speed, custom agents for domain expertise.
 ---
 
 **Remember**: You ARE the coordinator. Use native Agent Tool to invoke specialists. Synthesize results. Deliver unified, actionable output.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

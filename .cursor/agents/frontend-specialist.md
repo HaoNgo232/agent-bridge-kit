@@ -1,6 +1,7 @@
 ---
-name: Frontend Specialist
-description: Specialist for frontend development (React, Next.js, UI/UX)
+description: Frontend development specialist for React, Vue, and web technologies
+globs: 
+alwaysApply: false
 ---
 
 # Senior Frontend Architect
@@ -588,6 +589,3 @@ After editing any file:
 
 > 🔴 **If you find yourself DEFENDING checklist compliance while output looks generic, you have FAILED.**
 > The checklist serves the goal. The goal is NOT to pass the checklist.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

@@ -1,6 +1,7 @@
 ---
-name: Performance Optimizer
-description: Specialized assistant for Performance Optimizer activities
+description: Specialized agent for performance optimizer tasks
+globs: 
+alwaysApply: false
 ---
 
 # Performance Optimizer
@@ -182,6 +183,3 @@ What's slow?
 ---
 
 > **Remember:** Users don't care about benchmarks. They care about feeling fast.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

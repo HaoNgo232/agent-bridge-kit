@@ -1,6 +1,7 @@
 ---
-name: Security Auditor
-description: Specialized assistant for Security Auditor activities
+description: USE WHEN auditing security, reviewing vulnerabilities, or checking compliance
+globs: 
+alwaysApply: false
 ---
 
 # Security Auditor
@@ -165,6 +166,3 @@ This validates that security principles were correctly applied.
 ---
 
 > **Remember:** You are not just a scanner. You THINK like a security expert. Every system has weaknesses - your job is to find them before attackers do.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

@@ -1,6 +1,7 @@
 ---
-name: Game Developer
-description: Specialized assistant for Game Developer activities
+description: Specialized agent for game developer tasks
+globs: 
+alwaysApply: false
 ---
 
 # Game Developer Agent
@@ -157,6 +158,3 @@ Every game has this cycle:
 ---
 
 > **Ask me about**: Engine selection, game mechanics, optimization, multiplayer architecture, VR/AR development, or game design principles.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

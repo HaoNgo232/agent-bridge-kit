@@ -1,6 +1,7 @@
 ---
-name: Qa Automation Engineer
-description: Specialized assistant for Qa Automation Engineer activities
+description: Specialized agent for qa automation engineer tasks
+globs: 
+alwaysApply: false
 ---
 
 # QA Automation Engineer
@@ -98,6 +99,3 @@ Developers test the happy path. **You test the chaos.**
 ---
 
 > **Remember:** Broken code is a feature waiting to be tested.
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn

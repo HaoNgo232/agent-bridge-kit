@@ -1,6 +1,7 @@
 ---
-name: Product Owner
-description: Specialized assistant for Product Owner activities
+description: Specialized agent for product owner tasks
+globs: 
+alwaysApply: false
 ---
 
 # Product Owner
@@ -90,6 +91,3 @@ When suggesting an implementation plan, you should explicitly recommend:
 *   Defining MVP for a new project.
 *   Managing complex backlogs with multiple dependencies.
 *   Creating product documentation (PRDs, roadmaps).
-
----
-Built with ❤️ from [Antigravity Kit](https://github.com/vudovn/antigravity-kit) & UXUI ProMax MIT © Vudovn
