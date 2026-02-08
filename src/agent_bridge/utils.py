@@ -38,8 +38,20 @@ def ask_user(question: str, default: bool = True) -> bool:
             return False
 
 def get_master_agent_dir() -> Path:
-    """Returns the .agent directory inside the agent-bridge project."""
-    return Path(__file__).resolve().parent.parent.parent / ".agent"
+    """Returns the master .agent directory.
+    
+    Checks in order:
+    1. XDG config directory (~/.config/agent-bridge/cache/antigravity-kit/.agent)
+    2. Legacy location (agent-bridge project root / .agent)
+    """
+    # Prefer XDG cache from VaultManager
+    xdg_path = Path.home() / ".config" / "agent-bridge" / "cache" / "antigravity-kit" / ".agent"
+    if xdg_path.exists():
+        return xdg_path
+    
+    # Legacy fallback: relative to package install location
+    legacy_path = Path(__file__).resolve().parent.parent.parent / ".agent"
+    return legacy_path
 
 
 # =============================================================================

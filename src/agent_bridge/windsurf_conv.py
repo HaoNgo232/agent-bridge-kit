@@ -255,10 +255,14 @@ def convert_skill_to_windsurf_rule(source_dir: Path, dest_path: Path) -> bool:
                 additional_clean = re.sub(r'^---\n.*?\n---\n*', '', additional, flags=re.DOTALL)
                 content_clean += f"\n\n---\n\n{additional_clean}"
         
-        # Build output (max 12000 chars per Windsurf limit)
+        # Windsurf has a per-rule character limit
+        # See: https://docs.windsurf.com/windsurf/cascade/memories#rule-limits
+        WINDSURF_RULE_MAX_CHARS = 12000
+        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
+
         output = f"{header}{content_clean.strip()}\n"
-        if len(output) > 12000:
-            output = output[:11900] + "\n\n... (truncated)\n"
+        if len(output) > WINDSURF_RULE_MAX_CHARS:
+            output = output[:WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -286,9 +290,12 @@ def convert_agent_to_windsurf_rule(source_path: Path, dest_path: Path) -> bool:
             globs=[],
         )
         
+        WINDSURF_RULE_MAX_CHARS = 12000
+        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
+        
         output = f"{header}{content_clean.strip()}\n"
-        if len(output) > 12000:
-            output = output[:11900] + "\n\n... (truncated)\n"
+        if len(output) > WINDSURF_RULE_MAX_CHARS:
+            output = output[:WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -328,8 +335,10 @@ def convert_workflow_to_windsurf(source_path: Path, dest_path: Path) -> bool:
         output = generate_workflow_content(workflow_name, steps, description)
         output += f"\n\n---\n\n## Full Instructions\n\n{content_clean.strip()}\n"
         
-        if len(output) > 12000:
-            output = output[:11900] + "\n\n... (truncated)\n"
+        WINDSURF_RULE_MAX_CHARS = 12000
+        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
+        if len(output) > WINDSURF_RULE_MAX_CHARS:
+            output = output[:WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -340,37 +349,36 @@ def convert_workflow_to_windsurf(source_path: Path, dest_path: Path) -> bool:
 
 
 def create_windsurfrules(dest_root: Path, source_root: Path) -> bool:
-    """Create legacy .windsurfrules file in project root."""
+    """Create legacy .windsurfrules file from project's actual agent knowledge."""
     try:
-        # Collect core rules for root file
-        core_content = [
-            "# Project Rules for Windsurf",
-            "",
-            "## Core Guidelines",
-            "",
-        ]
+        parts = ["# Project Rules for Windsurf", ""]
         
-        # Add from AGENTS.md if exists
-        agents_md = source_root / "AGENTS.md"
-        if agents_md.exists():
-            content = agents_md.read_text(encoding="utf-8")
-            # Extract key sections
-            core_content.append(content[:3000])  # Limit size
+        # Pull from always-on skills first (these are the most relevant)
+        skills_src = source_root / ".agent" / "skills"
+        if skills_src.exists():
+            for skill_name in ["clean-code", "behavioral-modes"]:
+                skill_file = skills_src / skill_name / "SKILL.md"
+                if skill_file.exists():
+                    content = skill_file.read_text(encoding="utf-8")
+                    # Strip frontmatter
+                    content = re.sub(r'^---\n.*?\n---\n*', '', content, flags=re.DOTALL)
+                    parts.append(content.strip())
+                    parts.append("")
         
-        # Add basic coding guidelines
-        core_content.extend([
-            "",
-            "## Coding Standards",
-            "",
-            "1. Write clean, maintainable code",
-            "2. Follow project conventions",
-            "3. Add tests for new features",
-            "4. Document public APIs",
-            "5. Use meaningful variable names",
-            "",
-        ])
+        # Add from AGENTS.md or ARCHITECTURE.md if present
+        for candidate in ["AGENTS.md", ".agent/ARCHITECTURE.md"]:
+            candidate_path = source_root / candidate
+            if candidate_path.exists():
+                content = candidate_path.read_text(encoding="utf-8")
+                parts.append(content[:3000].strip())
+                parts.append("")
+                break
         
-        output = "\n".join(core_content)
+        # Enforce max size for .windsurfrules (6000 chars is reasonable for root file)
+        output = "\n".join(parts)
+        if len(output) > 6000:
+            output = output[:5950] + "\n\n... (see .windsurf/rules/ for full details)\n"
+        
         (dest_root / ".windsurfrules").write_text(output, encoding="utf-8")
         return True
     except Exception as e:
@@ -474,7 +482,7 @@ def convert_windsurf(source_dir: str, output_dir: str, force: bool = False):
             print(f"{Colors.YELLOW}🔔 Local .agent not found, using Master Vault: {master_path}{Colors.ENDC}")
             source_root = master_path.parent
         else:
-            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.RED}❌ Error: No agent source found. Run 'agent-bridge update' first.{Colors.ENDC}")
             return
 
     # Confirmation for Windsurf Overwrite

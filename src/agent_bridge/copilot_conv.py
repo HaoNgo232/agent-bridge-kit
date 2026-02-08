@@ -312,11 +312,13 @@ def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
             
             (dest_skill_dir / "SKILL.md").write_text(output, encoding="utf-8")
         
-        # Copy subdirectories and additional files
+        # Copy additional markdown files and safe subdirectories
+        SKIP_DIRS = {"node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build"}
         for item in source_dir.iterdir():
             if item.is_dir():
-                shutil.copytree(item, dest_skill_dir / item.name, dirs_exist_ok=True)
-            elif item.name != "SKILL.md" and item.suffix == ".md":
+                if item.name not in SKIP_DIRS and not item.name.startswith("."):
+                    shutil.copytree(item, dest_skill_dir / item.name, dirs_exist_ok=True)
+            elif item.name != "SKILL.md" and item.suffix in (".md", ".txt", ".json", ".yaml", ".yml"):
                 shutil.copy2(item, dest_skill_dir / item.name)
         
         return True
@@ -400,7 +402,7 @@ def convert_copilot(source_dir: str, output_unused: str, force: bool = False):
             print(f"{Colors.YELLOW}🔔 Local .agent not found, using Master Vault: {master_path}{Colors.ENDC}")
             source_root = master_path.parent
         else:
-            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.RED}❌ Error: No agent source found. Run 'agent-bridge update' first.{Colors.ENDC}")
             return
 
     # Confirmation for Copilot Overwrite

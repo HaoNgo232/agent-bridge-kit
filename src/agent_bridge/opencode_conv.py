@@ -456,7 +456,7 @@ def convert_opencode(source_dir: str, output_unused: str, force: bool = False):
             print(f"{Colors.YELLOW}🔔 Local .agent not found, using Master Vault: {master_path}{Colors.ENDC}")
             source_root = master_path.parent
         else:
-            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.RED}❌ Error: No agent source found. Run 'agent-bridge update' first.{Colors.ENDC}")
             return
 
     # Confirmation for OpenCode Overwrite
@@ -495,16 +495,27 @@ def copy_mcp_opencode(root_path: Path, force: bool = False):
             try:
                 config = json.loads(opencode_json_path.read_text(encoding='utf-8'))
                 
-                # Filter and integrate
+                # Integrate MCP servers into OpenCode format
                 config["mcp"] = {}
                 source_servers = mcp_config.get("mcpServers", {})
                 for name, server_config in source_servers.items():
-                    new_config = server_config.copy()
-                    if "type" not in new_config: new_config["type"] = "local"
-                    if "enabled" not in new_config: new_config["enabled"] = True
-                    if "command" in new_config and isinstance(new_config["command"], str):
-                        new_config["command"] = [new_config["command"]] + new_config.get("args", [])
-                        if "args" in new_config: del new_config["args"]
+                    new_config = {}
+                    # Preserve original command/args structure
+                    if "command" in server_config:
+                        cmd = server_config["command"]
+                        args = server_config.get("args", [])
+                        if isinstance(cmd, str):
+                            new_config["command"] = [cmd] + (args if isinstance(args, list) else [])
+                        elif isinstance(cmd, list):
+                            new_config["command"] = cmd
+                        else:
+                            new_config["command"] = [str(cmd)]
+                    # Copy env if present
+                    if "env" in server_config:
+                        new_config["env"] = server_config["env"]
+                    # OpenCode-specific fields
+                    new_config["type"] = server_config.get("type", "local")
+                    new_config["enabled"] = server_config.get("enabled", True)
                     config["mcp"][name] = new_config
                 
                 opencode_json_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding='utf-8')

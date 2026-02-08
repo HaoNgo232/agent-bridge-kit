@@ -374,7 +374,8 @@ def convert_workflow_to_prompt(source_path: Path, dest_path: Path) -> bool:
                 fm_data = yaml.safe_load(fm_match.group(1))
                 if isinstance(fm_data, dict) and fm_data.get("description"):
                     description = fm_data["description"]
-            except: pass
+            except (yaml.YAMLError, ValueError, TypeError):
+                pass
             
         # Build Kiro Prompt frontmatter
         prompt_fm = {
@@ -430,17 +431,17 @@ def convert_workflow_to_steering(source_path: Path, dest_path: Path) -> bool:
 
 def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
     """
-    Copy rules files vào Kiro steering directory.
+    Copy rules files into Kiro steering directory.
     
-    Theo Kiro spec, rules (như GEMINI.md) phải được đặt trong .kiro/steering/
-    vì steering là nơi chứa "persistent knowledge about your project".
+    Per Kiro spec, rules (e.g. GEMINI.md) belong in .kiro/steering/
+    as persistent project knowledge.
     
     Args:
-        source_dir: Thư mục rules nguồn (.agent/rules)
-        dest_dir: Thư mục steering đích (.kiro/steering)
+        source_dir: Source rules directory (.agent/rules)
+        dest_dir: Destination steering directory (.kiro/steering)
     
     Returns:
-        True nếu thành công, False nếu có lỗi
+        True on success, False on error
     """
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -458,17 +459,17 @@ def copy_rules_to_steering(source_dir: Path, dest_dir: Path) -> bool:
 
 def copy_architecture_to_steering(source_file: Path, dest_dir: Path) -> bool:
     """
-    Copy ARCHITECTURE.md vào Kiro steering directory.
+    Copy ARCHITECTURE.md into Kiro steering directory.
     
-    Theo Kiro spec, architecture docs phải được đặt trong .kiro/steering/
-    vì đây là project knowledge/conventions.
+    Per Kiro spec, architecture docs belong in .kiro/steering/
+    as project knowledge/conventions.
     
     Args:
-        source_file: File ARCHITECTURE.md nguồn
-        dest_dir: Thư mục steering đích (.kiro/steering)
+        source_file: Source ARCHITECTURE.md file
+        dest_dir: Destination steering directory (.kiro/steering)
     
     Returns:
-        True nếu thành công, False nếu có lỗi
+        True on success, False on error
     """
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -482,14 +483,14 @@ def copy_architecture_to_steering(source_file: Path, dest_dir: Path) -> bool:
 
 def copy_mcp_config(source_file: Path, dest_file: Path) -> bool:
     """
-    Copy MCP config file vào Kiro settings.
+    Copy MCP config file into Kiro settings.
     
     Args:
-        source_file: File mcp_config.json nguồn
-        dest_file: File mcp.json đích (trong .kiro/settings/)
+        source_file: Source mcp_config.json file
+        dest_file: Destination mcp.json (in .kiro/settings/)
     
     Returns:
-        True nếu thành công, False nếu có lỗi
+        True on success, False on error
     """
     try:
         dest_file.parent.mkdir(parents=True, exist_ok=True)
@@ -504,21 +505,20 @@ def fetch_external_skill_resources(project_root: Path, verbose: bool = True) -> 
     """
     Install ui-ux-pro-max skill resources using uipro CLI.
     
-    Skill ui-ux-pro-max có CLI riêng:
-    https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+    See: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
     
-    Nếu uipro CLI chưa có, tự động install: npm install -g uipro-cli
-    Sau đó chạy: uipro init --ai kiro
+    If uipro CLI is not installed, prompts before auto-installing globally.
+    Then runs: uipro init --ai kiro
     
     Args:
-        project_root: Project root directory (nơi chạy uipro init)
+        project_root: Project root directory
         verbose: Print progress messages
     
     Returns:
-        True nếu thành công, False nếu có lỗi
+        True on success, False on error
     """
     try:
-        # Check xem uipro CLI đã được install chưa
+        # Check if uipro CLI is installed
         check_result = subprocess.run(
             ["uipro", "--version"],
             capture_output=True,
@@ -526,12 +526,12 @@ def fetch_external_skill_resources(project_root: Path, verbose: bool = True) -> 
             cwd=str(project_root)
         )
         
-        # Nếu chưa có, auto-install
+        # If not found, auto-install
         if check_result.returncode != 0:
             if verbose:
                 print(f"  📦 uipro CLI not found, installing globally...")
             
-            # Chạy npm install -g uipro-cli
+            # Install globally via npm
             install_result = subprocess.run(
                 ["npm", "install", "-g", "uipro-cli"],
                 capture_output=True,
@@ -550,7 +550,7 @@ def fetch_external_skill_resources(project_root: Path, verbose: bool = True) -> 
         if verbose:
             print(f"  📥 Installing ui-ux-pro-max via uipro CLI...")
         
-        # Chạy uipro init --ai kiro
+        # Run uipro init for Kiro
         result = subprocess.run(
             ["uipro", "init", "--ai", "kiro"],
             capture_output=True,
@@ -588,16 +588,14 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     """
     Main conversion function for Kiro CLI format.
     
-    Converts theo Kiro official spec (https://kiro.dev/docs/cli/):
-    - agents/ → .kiro/agents/ (JSON format)
-    - skills/ → .kiro/skills/ (full copy)
-    - workflows/ → .kiro/prompts/ (custom commands với @)
-    - rules/ → .kiro/steering/ (system prompts như GEMINI.md)
-    - mcp_config.json → .kiro/settings/mcp.json
+    Converts per Kiro official spec (https://kiro.dev/docs/cli/):
+    - agents/ -> .kiro/agents/ (JSON format)
+    - skills/ -> .kiro/skills/ (full copy)
+    - workflows/ -> .kiro/prompts/ (custom commands via @)
+    - rules/ -> .kiro/steering/ (system prompts)
+    - mcp_config.json -> .kiro/settings/mcp.json
     
-    NOTE: 
-    - scripts/, .shared/, ARCHITECTURE.md KHÔNG được convert (không thuộc Kiro spec)
-    - ARCHITECTURE.md là documentation, không phải system prompt
+    NOTE: scripts/, .shared/, ARCHITECTURE.md are NOT converted (not part of Kiro spec).
     
     Args:
         source_root: Path to project root containing .agent/
@@ -617,7 +615,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         "errors": []
     }
     
-    # Define source và destination paths
+    # Define source and destination paths
     agent_root = source_root / ".agent"
     kiro_root = dest_root / ".kiro"
     
@@ -636,7 +634,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
     mcp_src = agent_root / "mcp_config.json"
     mcp_dest = kiro_root / "settings" / "mcp.json"
     
-    # Components không thuộc Kiro spec
+    # Components not part of Kiro spec (skipped)
     scripts_src = agent_root / "scripts"
     shared_src = agent_root / ".shared"
     
@@ -646,7 +644,9 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         try:
             mcp_data = json.loads(mcp_src.read_text(encoding="utf-8"))
             mcp_server_names = list(mcp_data.get("mcpServers", {}).keys())
-        except: pass
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            if verbose:
+                print(f"  Warning: Could not parse MCP config: {e}")
 
     # Convert agents to JSON
     if agents_src.exists():
@@ -676,7 +676,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
                 else:
                     stats["errors"].append(f"skill:{skill_dir.name}")
     
-    # Convert workflows to Prompts (theo Kiro spec)
+    # Convert workflows to Prompts (per Kiro spec)
     prompts_dest = dest_root / ".kiro" / "prompts"
     if workflows_src.exists():
         if verbose:
@@ -691,7 +691,7 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
             else:
                 stats["errors"].append(f"prompt:{workflow_file.name}")
     
-    # Copy rules to steering (theo Kiro spec)
+    # Copy rules to steering (per Kiro spec)
     if rules_src.exists():
         if verbose:
             print("Copying rules to steering...")
@@ -716,20 +716,20 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
         else:
             stats["errors"].append("mcp:copy_failed")
     
-    # Install ui-ux-pro-max skill via uipro CLI (nếu có workflow)
+    # Install ui-ux-pro-max skill via uipro CLI (if workflow exists)
     ui_ux_workflow = workflows_src / "ui-ux-pro-max.md" if workflows_src.exists() else None
     if ui_ux_workflow and ui_ux_workflow.exists():
         if verbose:
             print("Installing ui-ux-pro-max skill...")
         
         if fetch_external_skill_resources(source_root, verbose):
-            # CLI sẽ tự động tạo .kiro/skills/ui-ux-pro-max/
+            # CLI will auto-create .kiro/skills/ui-ux-pro-max/
             pass
         else:
             stats["warnings"].append("ui-ux-pro-max install failed (install uipro CLI: npm install -g uipro-cli)")
 
     
-    # Warnings cho components không được convert
+    # Warnings for components not converted
     if scripts_src.exists():
         stats["warnings"].append("scripts/ not converted (not part of Kiro spec)")
     
@@ -779,7 +779,7 @@ def convert_kiro(source_dir: str, output_dir: str, force: bool = False):
             print(f"{Colors.YELLOW}🔔 Local .agent not found, using Master Vault: {master_path}{Colors.ENDC}")
             source_root = master_path.parent
         else:
-            print(f"{Colors.RED}❌ Error: No source tri thức found.{Colors.ENDC}")
+            print(f"{Colors.RED}❌ Error: No agent source found. Run 'agent-bridge update' first.{Colors.ENDC}")
             return
 
     # Confirmation for Kiro Overwrite

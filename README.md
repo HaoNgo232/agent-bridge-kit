@@ -1,121 +1,143 @@
-# Agent Bridge 🚀
+# Agent Bridge
 
-A bridge tool to convert and synchronize Agent/Skill knowledge from Antigravity Kit to popular IDEs and CLIs.
+Convert and sync AI agent knowledge to your IDE — supports multiple knowledge sources.
 
-
-## 🚀 Quick Start
-
-Copy and run this command to install the tool in one go:
+## Install
 
 ```bash
-git clone https://github.com/HaoNgo232/agent-bridge && cd agent-bridge && pipx install -e . --force
+pip install git+https://github.com/HaoNgo232/agent-bridge
 ```
 
-*Note: You need `pipx` installed first (`sudo apt install pipx` or `brew install pipx`).*
-
-## 🛠️ Usage
-
-### 1. Initialize & Update (`init`)
-
-Navigate to your project to initialize Agent, Skill configurations, and install MCP.
-
-**✨ NEW: Interactive Mode with TUI!**
+## Quick Start
 
 ```bash
-# Interactive mode (recommended for first-time users)
-agent-bridge init -i
+cd your-project
 
-# Original CLI mode (backward compatible)
-agent-bridge init --kiro
-agent-bridge init --all
-```
-
-**Smart Init Features:**
-- **🎨 Interactive TUI**: Arrow keys navigation, multi-select formats
-- **📁 Agent Source**: Choose project/vault/merge
-- **Security**: Asks before overwriting MCP config (Default: Skip to keep your keys).
-- **Update**: Asks before updating Agent/Skill (Default: Yes).
-- **Interactivity**: Use `--force` or `-f` to skip all prompts.
-
-```bash
-# Initialize for all formats (CLI mode)
+# Interactive setup (recommended)
 agent-bridge init
 
-# Use non-interactive mode
-agent-bridge init --force
-
-# Initialize specific format
-agent-bridge init --copilot
-agent-bridge init --opencode
-agent-bridge init --kiro
+# Or specify your IDE directly
 agent-bridge init --cursor
-agent-bridge init --windsurf
 ```
 
-### 2. MCP Management (`mcp`)
+The interactive mode walks you through selecting knowledge sources and target IDE formats.
 
-Install or update MCP configuration (`.agent/mcp_config.json`) to IDEs.
+## Supported IDEs
+
+| IDE | Output Directory | Status |
+| --- | --- | --- |
+| Cursor AI | `.cursor/` | Stable |
+| Kiro CLI | `.kiro/` | Stable |
+| GitHub Copilot | `.github/` | Beta |
+| OpenCode | `.opencode/` | Beta |
+| Windsurf | `.windsurf/` | Beta |
+
+## Commands
 
 ```bash
-# Install MCP for all IDEs (Asks if file exists)
-agent-bridge mcp --all
-
-# Force install
-agent-bridge mcp --all --force
-
-# Install for specific IDE
-agent-bridge mcp --cursor    # .cursor/mcp.json
-agent-bridge mcp --opencode  # .opencode/opencode.json
-agent-bridge mcp --copilot   # .vscode/mcp.json
-agent-bridge mcp --kiro      # .kiro/settings/mcp.json
+agent-bridge init
 ```
 
-### 3. Knowledge Sync (`update`)
-
-Sync the latest knowledge from the original Antigravity Kit repository to your machine. This command automatically refreshes configurations if the project already has IDE folders.
+Set up agent configs for your project. Runs interactive TUI by default. Use flags like `--cursor`, `--kiro`, or `--all` to skip the TUI.
 
 ```bash
 agent-bridge update
 ```
 
-### 4. Cleanup (`clean`)
-
-Remove generated AI configuration directories:
+Pull latest knowledge from all registered vaults and refresh any existing IDE configs in the current project.
 
 ```bash
-# Remove all configurations
-agent-bridge clean --all
-
-# Remove specific format
-agent-bridge clean --copilot
-agent-bridge clean --kiro
+agent-bridge mcp --all
 ```
 
-## 💎 Supported Formats & Features
+Install MCP (Model Context Protocol) configuration to all IDEs. Use `--cursor`, `--kiro`, etc. to target specific IDEs.
 
-| IDE/CLI | Status | Config Location | Key Features |
-|---------|--------|-----------------|--------------|
-| **Kiro CLI** | 🟢 STABLE | `.kiro/` | **Official Professional Spec**, Auto-approve MCP tools, Custom Prompts (@), Spawn Hooks |
-| **GitHub Copilot** | 🟡 BETA | `.github/` | Official Agent Spec (JSON/MD), Metadata merging |
-| **OpenCode IDE** | 🟡 BETA | `.opencode/` | Unified JSON settings, Skill support |
-| **Cursor AI** | � STABLE | `.cursor/` | **v2.4 Spec**, Slash Commands (/), Subagents, MDC Rules |
-| **Windsurf IDE** | 🟡 BETA | `.windsurf/` | Context-aware logic |
+```bash
+agent-bridge clean --all
+```
 
-## 📂 Project Structure
+Remove generated IDE configuration directories.
 
-- `.agent/`: Master Vault storing original knowledge.
-- `src/agent_bridge/`: Core conversion logic for each IDE.
-- `utils.py`: CLI interface utilities and user interaction.
+```bash
+agent-bridge vault list
+```
 
----
+Show all registered knowledge vaults.
 
-## 🏆 Credits & Acknowledgements
+```bash
+agent-bridge vault add <name> <url>
+```
 
-This project builds upon the excellent work of:
+Register a new vault (git repo or local path).
 
-- **Antigravity Kit** by [Vudovn](https://github.com/vudovn) (MIT License) - The core knowledge vault.
-- **UI-UX Pro Max** by [NextLevelBuilder](https://github.com/nextlevelbuilder) (MIT License) - Advanced design intelligence skill.
+```bash
+agent-bridge vault remove <name>
+```
 
-## 📄 License
+Unregister a vault.
 
-*MIT © HaoNgo232*
+```bash
+agent-bridge vault sync
+```
+
+Download and update all registered vaults.
+
+## Knowledge Vaults
+
+Agent Bridge ships with [Antigravity Kit](https://github.com/vudovn/antigravity-kit) as the default vault, but you can register any git repo or local directory that follows the `.agent/` structure:
+
+```bash
+# Add your team's private vault
+agent-bridge vault add my-team git@github.com:myorg/ai-agents.git
+
+# Add a local directory
+agent-bridge vault add local-agents /path/to/my-agents
+
+# Sync all vaults
+agent-bridge vault sync
+
+# Now init will merge knowledge from all vaults
+agent-bridge init --cursor
+```
+
+### Vault Structure
+
+A vault is any directory containing:
+
+```text
+.agent/
+├── agents/          # Agent personality files (*.md)
+├── skills/          # Skill directories with SKILL.md
+├── workflows/       # Workflow templates (*.md)
+└── mcp_config.json  # MCP server configuration
+```
+
+When multiple vaults are registered, files are merged with project-local files taking priority, followed by vaults in priority order (lower number = higher priority).
+
+## How It Works
+
+Agent Bridge reads markdown-based agent definitions from `.agent/` and converts them to each IDE's native format — JSON configs for Kiro, MDC rules for Cursor, frontmatter-annotated markdown for Copilot, etc. MCP configurations are copied to each IDE's expected location.
+
+## Project Structure
+
+```text
+src/agent_bridge/
+├── cli.py           # CLI entry point and argument parsing
+├── vault.py         # Multi-source vault management
+├── kit_sync.py      # Knowledge synchronization
+├── kiro_conv.py     # Kiro format converter
+├── cursor_conv.py   # Cursor format converter
+├── copilot_conv.py  # GitHub Copilot converter
+├── opencode_conv.py # OpenCode converter
+├── windsurf_conv.py # Windsurf converter
+└── utils.py         # Shared utilities
+```
+
+## Credits
+
+- [Antigravity Kit](https://github.com/vudovn/antigravity-kit) by Vudovn (MIT License)
+- [UI-UX Pro Max](https://github.com/nextlevelbuilder) by NextLevelBuilder (MIT License)
+
+## License
+
+MIT © HaoNgo232

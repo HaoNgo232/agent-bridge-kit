@@ -1,7 +1,7 @@
 """
 Agent Bridge - Multi-format Agent/Skill converter for popular IDEs.
 
-Converts Antigravity Kit agent configurations to:
+Converts agent configurations from multiple vault sources to:
 - Kiro CLI (.kiro/)
 - GitHub Copilot (.github/)
 - Cursor AI (.cursor/)
@@ -9,7 +9,7 @@ Converts Antigravity Kit agent configurations to:
 - Windsurf IDE (.windsurf/)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "cli",
@@ -19,5 +19,6 @@ __all__ = [
     "opencode_conv",
     "windsurf_conv",
     "kit_sync",
+    "vault",
     "utils",
 ]
