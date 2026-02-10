@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for powershell windows
-name: PowerShell Windows Patterns
+description: PowerShell Windows patterns. Critical pitfalls, operator syntax, error
+  handling.
+name: powershell-windows
 ---
 
 # PowerShell Windows Patterns

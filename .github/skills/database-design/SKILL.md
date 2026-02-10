@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for database design
-name: Database Design
+description: Database design principles and decision-making. Schema design, indexing
+  strategy, ORM selection, serverless databases.
+name: database-design
 ---
 
 # Database Design

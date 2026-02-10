@@ -366,4 +366,10 @@ python .agent/skills/webapp-testing/scripts/playwright_runner.py http://localhos
 
 > 🔴 **EXIT GATE:** Phase X marker MUST be in PLAN.md before project is complete.
 
-... (truncated)
+---
+
+## Missing Information Detection
+
+**PRINCIPLE:**
+
+... (truncated to fit Windsurf rule limit)

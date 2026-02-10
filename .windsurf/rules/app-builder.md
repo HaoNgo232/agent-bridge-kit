@@ -357,6 +357,7 @@ project-name/
 | Need | Location |
 |------|----------|
 | New page/route | `app/(group)/page.tsx` |
-| Feature component | `features/[name]
+| Feature component | `features/[name]/components/` |
+| Server action | `features/[name]/acti
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

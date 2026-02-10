@@ -361,6 +361,7 @@ BUILD OUTPUT:
 
 Before saying "project complete":
 
-- [ ] **Android build runs without errors** (`./gradlew assembleDebug` or eq
+- [ ] **Android build runs without errors** (`./gradlew assembleDebug` or equivalent)
+- [ ] **iOS build runs without errors** (if c
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

@@ -387,6 +387,6 @@ This optimization is especially valuable when the skipped branch is frequently t
 
 ## Dependency-Based Parallelization
 
-For operations with partia
+For operations with partial dependencies, use `better-all` to maximize parallelis
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

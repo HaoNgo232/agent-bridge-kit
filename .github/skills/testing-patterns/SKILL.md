@@ -1,6 +1,6 @@
 ---
-description: Skill documentation for testing patterns
-name: Testing Patterns
+description: Testing patterns and principles. Unit, integration, mocking strategies.
+name: testing-patterns
 ---
 
 # Testing Patterns

@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for frontend design
-name: Frontend Design System
+description: Design thinking and decision-making for web UI. Use when designing components,
+  layouts, color schemes, typography, or creating aesthetic interfaces. Teaches principles,
+  not fixed values.
+name: frontend-design
 ---
 
 # Frontend Design System

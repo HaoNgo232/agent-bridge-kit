@@ -320,6 +320,7 @@ WHAT ARE YOU BUILDING?
         ├── Need OTA updates + rapid iteration + web team
         │   └── ✅ React Native + Expo
         │
-        ├── Need pixel-perf
+        ├── Need pixel-perfect custom UI + performance critical
+        │   └── ✅ 
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

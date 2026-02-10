@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for app builder
-name: App Builder - Application Building Orchestrator
+description: Main application building orchestrator. Creates full-stack applications
+  from natural language requests. Determines project type, selects tech stack, coordinates
+  agents.
+name: app-builder
 ---
 
 # App Builder - Application Building Orchestrator

@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for geo fundamentals
-name: GEO Fundamentals
+description: Generative Engine Optimization for AI search engines (ChatGPT, Claude,
+  Perplexity).
+name: geo-fundamentals
 ---
 
 # GEO Fundamentals

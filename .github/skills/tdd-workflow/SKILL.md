@@ -1,6 +1,6 @@
 ---
-description: Skill documentation for tdd workflow
-name: TDD Workflow
+description: Test-Driven Development workflow principles. RED-GREEN-REFACTOR cycle.
+name: tdd-workflow
 ---
 
 # TDD Workflow

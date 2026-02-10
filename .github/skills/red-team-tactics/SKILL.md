@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for red team tactics
-name: Red Team Tactics
+description: Red team tactics principles based on MITRE ATT&CK. Attack phases, detection
+  evasion, reporting.
+name: red-team-tactics
 ---
 
 # Red Team Tactics

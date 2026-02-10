@@ -361,6 +361,7 @@ I'll coordinate multiple agents for a comprehensive review:
 3. Having backend-specialist review implementation...
    [Agent executes, returns findings]
 
-4
+4. Finally, test-engineer to check test coverage...
+   [
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

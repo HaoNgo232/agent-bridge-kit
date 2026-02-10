@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for clean code
-name: Clean Code - Pragmatic AI Coding Standards
+description: Pragmatic coding standards - concise, direct, no over-engineering, no
+  unnecessary comments
+name: clean-code
 ---
 
 # Clean Code - Pragmatic AI Coding Standards

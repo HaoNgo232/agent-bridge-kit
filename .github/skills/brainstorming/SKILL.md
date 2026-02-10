@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for brainstorming
-name: Brainstorming & Communication Protocol
+description: Socratic questioning protocol + user communication. MANDATORY for complex
+  requests, new features, or unclear requirements. Includes progress reporting and
+  error handling.
+name: brainstorming
 ---
 
 # Brainstorming & Communication Protocol

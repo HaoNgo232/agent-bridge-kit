@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for i18n localization
-name: i18n & Localization
+description: Internationalization and localization patterns. Detecting hardcoded strings,
+  managing translations, locale files, RTL support.
+name: i18n-localization
 ---
 
 # i18n & Localization

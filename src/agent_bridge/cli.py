@@ -140,7 +140,7 @@ def _get_vault_agent_dir() -> Path:
 
 
 def _fetch_vault_to_project(agent_dir: Path, overwrite: bool = False):
-    """Sao chép các agent từ vault vào thư mục .agent/ của dự án."""
+    """Sao chep cac agent tu vault vao thu muc .agent/ cua du an."""
     vault_source = _get_vault_agent_dir()
     if not vault_source or not vault_source.exists():
         print(f"{Colors.YELLOW}Vault not synced yet. Running sync...{Colors.ENDC}")
@@ -156,6 +156,12 @@ def _fetch_vault_to_project(agent_dir: Path, overwrite: bool = False):
 
     if not vault_source or not vault_source.exists():
         print(f"{Colors.RED}No vault source available.{Colors.ENDC}")
+        return
+
+    # Tranh truong hop vault_source chinh la agent_dir (embedded vault)
+    # Neu trung nhau thi khong can copy, chi bao da san sang
+    if vault_source.resolve() == agent_dir.resolve():
+        print(f"{Colors.GREEN}.agent/ is the vault source itself, ready to use.{Colors.ENDC}")
         return
 
     if agent_dir.exists() and overwrite:

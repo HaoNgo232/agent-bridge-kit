@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for architecture
-name: Architecture Decision Framework
+description: Architectural decision-making framework. Requirements analysis, trade-off
+  evaluation, ADR documentation. Use when making architecture decisions or analyzing
+  system design.
+name: architecture
 ---
 
 # Architecture Decision Framework

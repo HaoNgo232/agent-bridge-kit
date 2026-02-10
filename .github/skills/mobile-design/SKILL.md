@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for mobile design
-name: Mobile Design System
+description: Mobile-first design thinking and decision-making for iOS and Android
+  apps. Touch interaction, performance patterns, platform conventions. Teaches principles,
+  not fixed values. Use when building React Native, Flutter, or native mobile apps.
+name: mobile-design
 ---
 
 # Mobile Design System

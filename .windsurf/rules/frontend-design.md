@@ -413,6 +413,6 @@ After implementing your design, run the audit:
 
 ---
 
-> **Remember:** Design is THINKING, not copying. Every project deserves fresh consider
+> **Remember:** Design is THINKING, not copying. Every project deserves fresh consideration based on its unique context and users. **Avoid th
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

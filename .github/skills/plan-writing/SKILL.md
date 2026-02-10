@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for plan writing
-name: Plan Writing
+description: Structured task planning with clear breakdowns, dependencies, and verification
+  criteria. Use when implementing features, refactoring, or any multi-step work.
+name: plan-writing
 ---
 
 # Plan Writing

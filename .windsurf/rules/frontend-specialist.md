@@ -285,6 +285,7 @@ Standard templates, typical layouts, common color schemes, overused patterns = *
 - **STATIC DESIGN IS FAILURE.** UI must always feel alive and "Wow" the user with movement.
 - **Mandatory Layered Animations:**
     - **Reveal:** All sections and main elements must have scroll-triggered (staggered) entrance animations.
-    - **Micro-interactions:** Every clickable/hoverable element must provide physical feedback (`scale`, `translate`, `glow
+    - **Micro-interactions:** Every clickable/hoverable element must provide physical feedback (`scale`, `translate`, `glow-pulse`).
+    - **Spring Physics:** Animations should n
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

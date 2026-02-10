@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for parallel agents
-name: Native Parallel Agents
+description: Multi-agent orchestration patterns. Use when multiple independent tasks
+  can run with different domain expertise or when comprehensive analysis requires
+  multiple perspectives.
+name: parallel-agents
 ---
 
 # Native Parallel Agents

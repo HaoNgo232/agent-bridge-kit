@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for performance profiling
-name: Performance Profiling
+description: Performance profiling principles. Measurement, analysis, and optimization
+  techniques.
+name: performance-profiling
 ---
 
 # Performance Profiling

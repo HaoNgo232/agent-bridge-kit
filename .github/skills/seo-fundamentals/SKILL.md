@@ -1,6 +1,6 @@
 ---
-description: Skill documentation for seo fundamentals
-name: SEO Fundamentals
+description: SEO fundamentals, E-E-A-T, Core Web Vitals, and Google algorithm principles.
+name: seo-fundamentals
 ---
 
 # SEO Fundamentals

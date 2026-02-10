@@ -5,21 +5,14 @@
   "tools": [
     "read",
     "write",
-    "list",
     "shell",
-    "code_search",
-    "web_fetch"
+    "search"
   ],
   "allowedTools": [
     "read",
-    "list",
-    "code_search",
-    "@shadcn/*",
-    "@context7/*",
-    "@sequentialthinking/*",
-    "@time/*",
-    "@chrome-devtools/*",
-    "@next-devtools/*"
+    "write",
+    "shell",
+    "search"
   ],
   "includeMcpJson": true,
   "resources": [

@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for intelligent routing
-name: Intelligent Agent Routing
+description: Automatic agent selection and intelligent task routing. Analyzes user
+  requests and automatically selects the best specialist agent(s) without requiring
+  explicit user mentions.
+name: intelligent-routing
 ---
 
 # Intelligent Agent Routing

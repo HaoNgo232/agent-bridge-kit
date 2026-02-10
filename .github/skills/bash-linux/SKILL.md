@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for bash linux
-name: Bash Linux Patterns
+description: Bash/Linux terminal patterns. Critical commands, piping, error handling,
+  scripting. Use when working on macOS or Linux systems.
+name: bash-linux
 ---
 
 # Bash Linux Patterns

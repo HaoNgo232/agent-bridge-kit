@@ -400,6 +400,6 @@ Based on your Instagram clone request:
 
 ### 1. **Photo Storage Strategy**
 
+**Question:** Where will user photos be stored and serv
 
-
-... (truncated)
+... (truncated to fit Windsurf rule limit)

@@ -1,6 +1,8 @@
 ---
-description: Skill documentation for lint and validate
-name: Lint and Validate Skill
+description: 'Automatic quality control, linting, and static analysis procedures.
+  Use after every code modification to ensure syntax correctness and project standards.
+  Triggers onKeywords: lint, format, check, validate, types, static analysis.'
+name: lint-and-validate
 ---
 
 # Lint and Validate Skill

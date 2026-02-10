@@ -529,6 +529,7 @@ Common setups:
 
 | Strategy | Implementation | Trade-offs |
 |----------|---------------|------------|
-| **URI** | /v1/users 
+| **URI** | /v1/users | Clear, easy caching |
+| **Header** | Accept-Version: 
 
-... (truncated)
+... (truncated to fit Windsurf rule limit)

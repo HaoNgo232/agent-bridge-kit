@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for server management
-name: Server Management
+description: Server management principles and decision-making. Process management,
+  monitoring strategy, and scaling decisions. Teaches thinking, not commands.
+name: server-management
 ---
 
 # Server Management

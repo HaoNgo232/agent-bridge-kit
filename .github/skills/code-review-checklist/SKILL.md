@@ -1,6 +1,6 @@
 ---
-description: Skill documentation for code review checklist
-name: Code Review Checklist
+description: Code review guidelines covering code quality, security, and best practices.
+name: code-review-checklist
 ---
 
 # Code Review Checklist

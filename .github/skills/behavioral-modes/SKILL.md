@@ -1,6 +1,7 @@
 ---
-description: Skill documentation for behavioral modes
-name: Behavioral Modes - Adaptive AI Operating Modes
+description: AI operational modes (brainstorm, implement, debug, review, teach, ship,
+  orchestrate). Use to adapt behavior based on task type.
+name: behavioral-modes
 ---
 
 # Behavioral Modes - Adaptive AI Operating Modes
