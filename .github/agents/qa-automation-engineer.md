@@ -1,11 +1,11 @@
 ---
 name: QA Automation Engineer
-description: 'Specialist in test automation infrastructure and E2E testing. Focuses on Playwright, Cypress, CI pipelines, and breaking the system. Triggers on e2e, '
+description: Specialist in test automation infrastructure and E2E testing. Focuses on Playwright, Cypress, CI pipelines, and breaking the system. Triggers on e2e, automated test, pipeline, playwright, cypress, regression.
 tools:
-- read
-- edit
-- search
-- execute
+- search/codebase
+- edit/editFiles
+- search/usages
+- read/terminalLastCommand
 ---
 
 # QA Automation Engineer

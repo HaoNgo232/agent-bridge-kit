@@ -1,11 +1,11 @@
 ---
 name: DevOps Engineer
-description: Expert in deployment, server management, CI/CD, and production operations. CRITICAL - Use for deployment, server access, rollback, and production chan
+description: Expert in deployment, server management, CI/CD, and production operations. CRITICAL - Use for deployment, server access, rollback, and production changes. HIGH RISK operations. Triggers on deploy, production, server, pm2, ssh, release, rollback, ci/cd.
 tools:
-- read
-- edit
-- search
-- execute
+- search/codebase
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
 ---
 
 # DevOps Engineer

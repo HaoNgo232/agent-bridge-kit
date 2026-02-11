@@ -19,46 +19,58 @@ import yaml
 from .utils import Colors, ask_user, get_master_agent_dir, install_mcp_for_ide
 
 # =============================================================================
-# TOOL MAPPINGS
+# TOOL MAPPINGS - Copilot Built-in Tools
 # =============================================================================
+# Reference: https://code.visualstudio.com/docs/copilot/agents/agent-tools
 
-# Tool alias mapping theo Copilot spec
-COPILOT_TOOL_ALIASES = {
-    # Primary aliases
-    "execute": ["shell", "bash", "powershell"],
-    "read": ["read", "notebookread"],
-    "edit": ["edit", "multiedit", "write", "notebookedit"],
-    "search": ["grep", "glob", "search"],
-    "agent": ["custom-agent", "task"],
-    "web": ["websearch", "webfetch", "fetch"],
-    "todo": ["todowrite"],
+# Agent role -> Copilot built-in tools mapping
+# VS Code Copilot format: tools now use toolset prefixes
+# Reference: https://code.visualstudio.com/docs/copilot/agents/agent-tools
+AGENT_TOOLS_MAP = {
+    # Planning & Research agents (read-only)
+    "project-planner": ["search/codebase", "web/fetch", "web/githubRepo", "search/usages"],
+    "explorer-agent": ["search/codebase", "web/fetch", "search/usages"],
+    "code-archaeologist": ["search/codebase", "search/usages"],
+    "product-manager": ["search/codebase", "web/fetch"],
+    "product-owner": ["search/codebase", "web/fetch"],
+    
+    # Security & Review agents (read-only + limited execution)
+    "security-auditor": ["search/codebase", "web/fetch", "search/usages"],
+    "penetration-tester": ["search/codebase", "web/fetch", "read/terminalLastCommand"],
+    
+    # Implementation agents (full access)
+    "frontend-specialist": ["search/codebase", "edit/editFiles", "web/fetch", "search/usages", "read/terminalLastCommand"],
+    "backend-specialist": ["search/codebase", "edit/editFiles", "web/fetch", "search/usages", "read/terminalLastCommand"],
+    "database-architect": ["search/codebase", "edit/editFiles", "web/fetch", "search/usages", "read/terminalLastCommand"],
+    "mobile-developer": ["search/codebase", "edit/editFiles", "web/fetch", "search/usages", "read/terminalLastCommand"],
+    "game-developer": ["search/codebase", "edit/editFiles", "web/fetch", "search/usages", "read/terminalLastCommand"],
+    
+    # Testing & QA agents
+    "test-engineer": ["search/codebase", "edit/editFiles", "search/usages", "read/terminalLastCommand"],
+    "qa-automation-engineer": ["search/codebase", "edit/editFiles", "search/usages", "read/terminalLastCommand"],
+    
+    # DevOps & Performance agents
+    "devops-engineer": ["search/codebase", "edit/editFiles", "web/fetch", "read/terminalLastCommand"],
+    "performance-optimizer": ["search/codebase", "edit/editFiles", "search/usages", "read/terminalLastCommand"],
+    
+    # Documentation & Content agents
+    "documentation-writer": ["search/codebase", "edit/editFiles", "web/fetch"],
+    "seo-specialist": ["search/codebase", "edit/editFiles", "web/fetch"],
+    
+    # Orchestration agents (can delegate to subagents)
+    "orchestrator": ["search/codebase", "web/fetch", "search/usages"],
+    "debugger": ["search/codebase", "edit/editFiles", "search/usages", "read/terminalLastCommand"],
 }
 
-# Agent role -> tools mapping
-AGENT_TOOLS_MAP = {
-    "frontend-specialist": ["read", "edit", "search", "execute"],
-    "backend-specialist": ["read", "edit", "search", "execute"],
-    "database-architect": ["read", "edit", "search", "execute"],
-    "security-auditor": ["read", "search"],  # Read-only for security review
-    "test-engineer": ["read", "edit", "search", "execute"],
-    "devops-engineer": ["read", "edit", "search", "execute"],
-    "documentation-writer": ["read", "edit", "search"],
-    "explorer-agent": ["read", "search"],  # Read-only explorer
-    "project-planner": ["read", "search", "agent"],  # Can delegate
-    "orchestrator": ["read", "search", "agent"],  # Orchestrates agents
-    "debugger": ["read", "edit", "search", "execute"],
-    "performance-optimizer": ["read", "edit", "search", "execute"],
-    "code-archaeologist": ["read", "search"],
-    "product-manager": ["read", "search"],
-    "product-owner": ["read", "search"],
-    "seo-specialist": ["read", "edit", "search"],
-    "game-developer": ["read", "edit", "search", "execute"],
-    "mobile-developer": ["read", "edit", "search", "execute"],
-    "penetration-tester": ["read", "search", "execute"],
-    "qa-automation-engineer": ["read", "edit", "search", "execute"],
+# Agents that can invoke subagents
+AGENT_SUBAGENTS_MAP = {
+    "orchestrator": ["*"],  # Can invoke any agent
+    "project-planner": ["*"],  # Can invoke any agent
+    "debugger": ["backend-specialist", "frontend-specialist", "test-engineer"],
 }
 
 # Handoffs - workflow transitions between agents
+# Note: 'model' field is optional and omitted for flexibility
 AGENT_HANDOFFS_MAP = {
     "project-planner": [
         {
@@ -217,14 +229,24 @@ def generate_copilot_frontmatter(agent_slug: str, metadata: Dict[str, Any]) -> s
     # Required: name
     frontmatter["name"] = metadata.get("name") or agent_slug.replace("-", " ").title()
 
-    # Required: description (max 150 chars for display)
+    # Required: description (keep reasonable length, not artificially limited)
     description = metadata.get("description") or metadata.get("role", "")
     if not description:
         description = f"Specialized agent for {agent_slug.replace('-', ' ')} tasks"
-    frontmatter["description"] = description[:150]
+    # Keep description under 500 chars for readability
+    frontmatter["description"] = description[:500] if len(description) > 500 else description
 
-    # Tools based on agent role
-    tools = AGENT_TOOLS_MAP.get(agent_slug, ["read", "edit", "search"])
+    # Tools based on agent role (Copilot built-in tools with toolset prefix)
+    tools = AGENT_TOOLS_MAP.get(agent_slug, ["search/codebase", "edit/editFiles", "web/fetch"])
+
+    # Subagents configuration (agents field)
+    subagents = AGENT_SUBAGENTS_MAP.get(agent_slug)
+    if subagents:
+        # Copilot spec: if `agents` is set, `agent` tool must be available.
+        if "agent" not in tools:
+            tools = [*tools, "agent"]
+        frontmatter["agents"] = subagents
+
     frontmatter["tools"] = tools
 
     # Handoffs for workflow agents
@@ -232,12 +254,8 @@ def generate_copilot_frontmatter(agent_slug: str, metadata: Dict[str, Any]) -> s
     if handoffs:
         frontmatter["handoffs"] = handoffs
 
-    # Subagents configuration for orchestrator-type agents
-    if agent_slug in ["orchestrator", "project-planner"]:
-        frontmatter["agents"] = ["*"]  # Allow invoking any agent as subagent
-
     # User-invokable (show in dropdown)
-    # Hide internal/utility agents
+    # Hide internal/utility agents from picker
     if agent_slug in ["code-archaeologist"]:
         frontmatter["user-invokable"] = False
 
@@ -286,7 +304,7 @@ def convert_agent_to_copilot(source_path: Path, dest_path: Path) -> bool:
 
 
 def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
-    """Convert a skill directory to Copilot format."""
+    """Convert a skill directory to Copilot format with validation."""
     try:
         skill_name = source_dir.name
         dest_skill_dir = dest_dir / skill_name
@@ -301,19 +319,24 @@ def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
         if skill_file and skill_file.exists():
             content = skill_file.read_text(encoding="utf-8")
 
-            # Extract skill title (unused, removed for linting)
-            # title_match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
-
-            # Generate skill frontmatter (Agent Skills spec: name must be lowercase + hyphens)
-            normalized_name = re.sub(r"[^a-z0-9-]", "-", skill_name.lower())[:64].strip("-")
+            # Generate skill frontmatter with validation
+            # Agent Skills spec: name must be lowercase + hyphens, max 64 chars
+            normalized_name = re.sub(r"[^a-z0-9-]", "-", skill_name.lower())
+            normalized_name = re.sub(r"-+", "-", normalized_name).strip("-")  # Remove duplicate hyphens
+            if len(normalized_name) > 64:
+                normalized_name = normalized_name[:64].rstrip("-")
 
             # Try to extract description from content
             desc_match = re.search(r"^(?:>|Description:|Purpose:)\s*(.+?)$", content, re.MULTILINE | re.IGNORECASE)
             skill_description = (
-                desc_match.group(1).strip()[:1024]
+                desc_match.group(1).strip()
                 if desc_match
                 else f"Skill documentation for {skill_name.replace('-', ' ')}"
             )
+            
+            # Validate description length (max 1024 chars per spec)
+            if len(skill_description) > 1024:
+                skill_description = skill_description[:1021] + "..."
 
             frontmatter = {
                 "name": normalized_name,

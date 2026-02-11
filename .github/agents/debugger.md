@@ -1,11 +1,16 @@
 ---
 name: Debugger
-description: Expert in systematic debugging, root cause analysis, and crash investigation. Use for complex bugs, production issues, performance problems, and error
+description: Expert in systematic debugging, root cause analysis, and crash investigation. Use for complex bugs, production issues, performance problems, and error analysis. Triggers on bug, error, crash, not working, broken, investigate, fix.
+agents:
+- backend-specialist
+- frontend-specialist
+- test-engineer
 tools:
-- read
-- edit
-- search
-- execute
+- search/codebase
+- edit/editFiles
+- search/usages
+- read/terminalLastCommand
+- agent
 handoffs:
 - label: Implement Fix
   agent: backend-specialist

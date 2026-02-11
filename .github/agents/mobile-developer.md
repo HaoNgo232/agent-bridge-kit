@@ -1,11 +1,12 @@
 ---
 name: Mobile Developer
-description: 'Expert in React Native and Flutter mobile development. Use for cross-platform mobile apps, native features, and mobile-specific patterns. Triggers on '
+description: Expert in React Native and Flutter mobile development. Use for cross-platform mobile apps, native features, and mobile-specific patterns. Triggers on mobile, react native, flutter, ios, android, app store, expo.
 tools:
-- read
-- edit
-- search
-- execute
+- search/codebase
+- edit/editFiles
+- web/fetch
+- search/usages
+- read/terminalLastCommand
 ---
 
 # Mobile Developer

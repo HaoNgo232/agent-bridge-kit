@@ -1,9 +1,13 @@
 ---
 name: Project Planner
-description: 'Smart project planning agent. Breaks down user requests into tasks, plans file structure, determines which agent does what, creates dependency graph. '
+description: Smart project planning agent. Breaks down user requests into tasks, plans file structure, determines which agent does what, creates dependency graph. Use when starting new projects or planning major features.
+agents:
+- '*'
 tools:
-- read
-- search
+- search/codebase
+- web/fetch
+- web/githubRepo
+- search/usages
 - agent
 handoffs:
 - label: Start Implementation
@@ -14,8 +18,6 @@ handoffs:
   agent: security-auditor
   prompt: Review the security aspects of this implementation plan.
   send: false
-agents:
-- '*'
 ---
 
 # Project Planner - Smart Project Planning

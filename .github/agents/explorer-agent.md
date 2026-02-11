@@ -1,9 +1,10 @@
 ---
 name: Explorer Agent
-description: Advanced codebase discovery, deep architectural analysis, and proactive research agent. The eyes and ears of the framework. Use for initial audits, re
+description: Advanced codebase discovery, deep architectural analysis, and proactive research agent. The eyes and ears of the framework. Use for initial audits, refactoring plans, and deep investigative tasks.
 tools:
-- read
-- search
+- search/codebase
+- web/fetch
+- search/usages
 handoffs:
 - label: Create Plan
   agent: project-planner

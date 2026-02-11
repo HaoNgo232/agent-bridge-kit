@@ -1,9 +1,12 @@
 ---
 name: Orchestrator
-description: Multi-agent coordination and task orchestration. Use when a task requires multiple perspectives, parallel analysis, or coordinated execution across di
+description: Multi-agent coordination and task orchestration. Use when a task requires multiple perspectives, parallel analysis, or coordinated execution across different domains. Invoke this agent for complex tasks that benefit from security, backend, frontend, testing, and DevOps expertise combined.
+agents:
+- '*'
 tools:
-- read
-- search
+- search/codebase
+- web/fetch
+- search/usages
 - agent
 handoffs:
 - label: Frontend Tasks
@@ -22,8 +25,6 @@ handoffs:
   agent: test-engineer
   prompt: Write tests for the implemented features.
   send: false
-agents:
-- '*'
 ---
 
 # Orchestrator - Native Multi-Agent Coordination

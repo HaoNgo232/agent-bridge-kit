@@ -1,9 +1,9 @@
 ---
 name: Product Manager
-description: Expert in product requirements, user stories, and acceptance criteria. Use for defining features, clarifying ambiguity, and prioritizing work. Trigger
+description: Expert in product requirements, user stories, and acceptance criteria. Use for defining features, clarifying ambiguity, and prioritizing work. Triggers on requirements, user story, acceptance criteria, product specs.
 tools:
-- read
-- search
+- search/codebase
+- web/fetch
 ---
 
 # Product Manager
