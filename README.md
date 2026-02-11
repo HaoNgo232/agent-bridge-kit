@@ -41,6 +41,12 @@ agent-bridge init
 Set up agent configs for your project. Runs interactive TUI by default. Use flags like `--cursor`, `--kiro`, or `--all` to skip the TUI.
 
 ```bash
+agent-bridge status
+```
+
+Show a dashboard of the current project: source content counts, vault sync status, IDE initialization state, and MCP configuration.
+
+```bash
 agent-bridge update
 ```
 

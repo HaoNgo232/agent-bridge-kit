@@ -112,7 +112,31 @@ def install_mcp_for_ide(source_root: Path, dest_root: Path, ide: str) -> bool:
         print(f"  Unknown IDE: {ide}")
         return False
 
-    return write_mcp_config(dest_path, mcp_config)
+    # Transform config to IDE-specific format
+    output_config = _transform_mcp_config(mcp_config, ide)
+    return write_mcp_config(dest_path, output_config)
+
+
+def _transform_mcp_config(config: Dict[str, Any], ide: str) -> Dict[str, Any]:
+    """
+    Transform .agent/mcp_config.json to IDE-specific MCP format.
+    
+    Source format uses "mcpServers" key.
+    VS Code (copilot) requires "servers" key.
+    Cursor uses "mcpServers" key (same as source).
+    Kiro uses "mcpServers" key (same as source).
+    Windsurf uses "mcpServers" key (same as source).
+    OpenCode has its own format (handled in _opencode_impl.py).
+    """
+    servers = config.get("mcpServers", {})
+    
+    if ide == "copilot":
+        # VS Code MCP spec: uses "servers" key, not "mcpServers"
+        # Ref: https://code.visualstudio.com/docs/copilot/customization/mcp-servers
+        return {"servers": servers}
+    
+    # Cursor, Kiro, Windsurf all use "mcpServers" key
+    return config
 
 
 # =============================================================================

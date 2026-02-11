@@ -58,6 +58,10 @@ def _main():
     # --- list ---
     sub.add_parser("list", help="List supported IDE formats")
 
+    # --- status ---
+    p_status = sub.add_parser("status", help="Show project status dashboard")
+    p_status.add_argument("--json", action="store_true", help="Output as JSON")
+
     # --- vault ---
     p_vault = sub.add_parser("vault", help="Manage knowledge vaults")
     vault_sub = p_vault.add_subparsers(dest="vault_action")
@@ -90,6 +94,8 @@ def _main():
         _handle_mcp(args, converter_registry)
     elif args.format == "list":
         _handle_list(converter_registry)
+    elif args.format == "status":
+        _handle_status(args)
     elif args.format == "vault":
         _handle_vault(args)
     elif args.format in converter_registry.names():
@@ -194,6 +200,21 @@ def _handle_list(registry):
     for conv in registry.all():
         info = conv.format_info
         print(f"  - {info.name}: {info.display_name} ({info.output_dir}/) [{info.status}]")
+
+
+def _handle_status(args):
+    from agent_bridge.services.status_service import collect_status
+    from agent_bridge.services.status_display import display_status
+    import json as json_mod
+
+    status = collect_status(Path.cwd())
+
+    if getattr(args, "json", False):
+        # Output machine-readable JSON (for scripts/CI)
+        from dataclasses import asdict
+        print(json_mod.dumps(asdict(status), indent=2, default=str))
+    else:
+        display_status(status)
 
 
 def _handle_vault(args):

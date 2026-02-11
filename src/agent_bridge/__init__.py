@@ -9,7 +9,7 @@ Converts agent configurations from multiple vault sources to:
 - Windsurf IDE (.windsurf/)
 """
 
-__version__ = "0.3.0"
+__version__ = "1.0.0"
 
 # Trigger converter auto-registration on import
 from agent_bridge import converters  # noqa: F401
