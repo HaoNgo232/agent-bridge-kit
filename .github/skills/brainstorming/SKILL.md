@@ -1,9 +1,6 @@
 ---
-allowed-tools: Read, Glob, Grep
-description: Socratic questioning protocol + user communication. MANDATORY for complex
-  requests, new features, or unclear requirements. Includes progress reporting and
-  error handling.
 name: brainstorming
+description: Socratic questioning protocol + user communication. MANDATORY for complex requests, new features, or unclear requirements. Includes progress reporting and error handling.
 ---
 
 # Brainstorming & Communication Protocol

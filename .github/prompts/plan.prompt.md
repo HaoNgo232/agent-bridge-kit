@@ -1,6 +1,5 @@
 ---
-description: Create project plan using project-planner agent. No code writing - only
-  plan file generation.
+description: Create project plan using project-planner agent. No code writing - only plan file generation.
 ---
 
 # /plan - Project Planning Mode

@@ -1,8 +1,6 @@
 ---
-allowed-tools: Read, Write, Edit, Glob, Grep
-description: Database design principles and decision-making. Schema design, indexing
-  strategy, ORM selection, serverless databases.
 name: database-design
+description: Database design principles and decision-making. Schema design, indexing strategy, ORM selection, serverless databases.
 ---
 
 # Database Design

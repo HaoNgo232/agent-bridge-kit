@@ -310,7 +310,10 @@ def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
     Spec: https://agentskills.io/
     - name: lowercase + hyphens, max 64 chars (required)
     - description: what + when to use, max 1024 chars (required)
-    - Other fields: preserved as-is
+    - Other fields: preserved as-is (may trigger warnings in VS Code)
+    
+    Note: Non-standard fields like 'allowed-tools' are preserved for
+    backward compatibility but may show warnings in VS Code.
     """
     try:
         skill_name = source_dir.name
@@ -370,12 +373,21 @@ def convert_skill_to_copilot(source_dir: Path, dest_dir: Path) -> bool:
                 "description": skill_description,
             }
             
-            # Preserve other fields (e.g., allowed-tools, custom metadata)
+            # Preserve other fields EXCEPT non-standard ones that cause warnings
+            SKIP_FIELDS = {"allowed-tools"}  # Not part of Agent Skills spec
             for key, value in existing_meta.items():
-                if key not in ("name", "description"):
+                if key not in ("name", "description") and key not in SKIP_FIELDS:
                     frontmatter[key] = value
 
-            output = f"---\n{yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True)}---\n\n{content.strip()}\n"
+            # Use literal style for long descriptions to avoid wrapping issues
+            yaml_str = yaml.dump(
+                frontmatter,
+                default_flow_style=False,
+                allow_unicode=True,
+                width=1000,  # Prevent line wrapping
+                sort_keys=False  # Preserve order
+            )
+            output = f"---\n{yaml_str}---\n\n{content.strip()}\n"
 
             (dest_skill_dir / "SKILL.md").write_text(output, encoding="utf-8")
 
@@ -546,7 +558,14 @@ def convert_workflow_to_prompt(source_path: Path, dest_path: Path) -> bool:
 
         # Write prompt file
         if frontmatter:
-            output = f"---\n{yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True)}---\n\n{content.strip()}\n"
+            yaml_str = yaml.dump(
+                frontmatter,
+                default_flow_style=False,
+                allow_unicode=True,
+                width=1000,
+                sort_keys=False
+            )
+            output = f"---\n{yaml_str}---\n\n{content.strip()}\n"
         else:
             output = content.strip() + "\n"
 
@@ -605,7 +624,14 @@ def convert_rule_to_instruction(source_path: Path, dest_path: Path) -> bool:
 
         # Write instruction file
         if frontmatter:
-            output = f"---\n{yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True)}---\n\n{content.strip()}\n"
+            yaml_str = yaml.dump(
+                frontmatter,
+                default_flow_style=False,
+                allow_unicode=True,
+                width=1000,
+                sort_keys=False
+            )
+            output = f"---\n{yaml_str}---\n\n{content.strip()}\n"
         else:
             output = content.strip() + "\n"
 

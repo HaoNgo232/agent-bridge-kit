@@ -1,8 +1,6 @@
 ---
-allowed-tools: Read, Write, Edit, Glob, Grep
-description: Python development principles and decision-making. Framework selection,
-  async patterns, type hints, project structure. Teaches thinking, not copying.
 name: python-patterns
+description: Python development principles and decision-making. Framework selection, async patterns, type hints, project structure. Teaches thinking, not copying.
 ---
 
 # Python Patterns
