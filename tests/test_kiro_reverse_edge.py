@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from agent_bridge.converters._kiro_impl import apply_reverse_capture_kiro
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 
 
 def test_kiro_agent_invalid_json_returns_false(tmp_path):
@@ -20,7 +20,7 @@ def test_kiro_agent_invalid_json_returns_false(tmp_path):
     captured = CapturedFile(
         ide_path=kiro_agents / "broken.json",
         agent_path=agent_dir / "agents" / "broken.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     result = apply_reverse_capture_kiro(captured, tmp_path, agent_dir)

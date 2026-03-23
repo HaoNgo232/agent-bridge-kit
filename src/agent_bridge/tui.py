@@ -183,7 +183,7 @@ def run_capture_tui(
 
     choices = []
     for cf in files:
-        status_str = f"[{cf.status}]" if cf.status else ""
+        status_str = f"[{cf.status.value}]" if cf.status else ""
         label = f"{status_str} {cf.ide_path.name} ({cf.ide_name})"
         choices.append(questionary.Choice(label, value=cf, checked=True))
 

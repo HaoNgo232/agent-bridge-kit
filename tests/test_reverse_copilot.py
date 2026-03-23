@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from agent_bridge.converters._copilot_impl import apply_reverse_capture_copilot, reverse_convert_copilot
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 
 
 def test_reverse_copilot_agent_strips_tools(tmp_project_with_ide_outputs):
@@ -18,7 +18,7 @@ def test_reverse_copilot_agent_strips_tools(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=agent_file,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="copilot",
     )
     apply_reverse_capture_copilot(captured, project, agent_dir)
@@ -43,7 +43,7 @@ def test_reverse_copilot_skill_copies_directory(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=skill_md,
         agent_path=agent_dir / "skills" / skill_dir.name / "SKILL.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="copilot",
     )
     apply_reverse_capture_copilot(captured, project, agent_dir)
@@ -68,7 +68,7 @@ def test_reverse_copilot_prompt_renames_extension(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=prompt_file,
         agent_path=agent_dir / "workflows" / f"{stem}.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="copilot",
     )
     apply_reverse_capture_copilot(captured, project, agent_dir)

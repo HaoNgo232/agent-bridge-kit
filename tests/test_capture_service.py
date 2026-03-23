@@ -3,6 +3,7 @@
 import pytest
 from pathlib import Path
 
+from agent_bridge.core.types import CaptureStatus
 from agent_bridge.services.capture_service import (
     execute_capture,
     scan_for_captures,
@@ -34,7 +35,7 @@ def test_scan_marks_new_files(tmp_project_with_ide_outputs):
     files = scan_for_captures(project)
     user_rule = [f for f in files if "user-rule" in str(f.ide_path)]
     assert len(user_rule) == 1
-    assert user_rule[0].status == "new"
+    assert user_rule[0].status == CaptureStatus.NEW
 
 
 def test_execute_capture_writes_files(tmp_project_with_ide_outputs):
@@ -69,7 +70,7 @@ def test_scan_marks_modified_files(tmp_project_with_ide_outputs):
     files = scan_for_captures(project, ide_names=["cursor"])
     agent_files = [f for f in files if "orchestrator" in str(f.ide_path)]
     assert len(agent_files) >= 1, "Expected to find orchestrator in capture list"
-    assert agent_files[0].status == "modified", f"Expected 'modified' but got '{agent_files[0].status}'"
+    assert agent_files[0].status == CaptureStatus.MODIFIED, f"Expected MODIFIED but got '{agent_files[0].status}'"
 
 
 def test_capture_dry_run_no_writes(tmp_project_with_ide_outputs):

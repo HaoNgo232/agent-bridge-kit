@@ -25,6 +25,8 @@ _r(
         can_delegate=True, delegatable_agents=["*"],
         allowed_commands=["git status", "git log *"],
         category="primary",
+        subagents=["*"],
+        handoff_targets=["frontend-specialist", "backend-specialist", "database-architect", "test-engineer"],
     ),
     AgentRole(
         slug="frontend-specialist", name="Frontend Specialist",
@@ -59,6 +61,8 @@ _r(
         can_delegate=True, delegatable_agents=["*"],
         allowed_commands=["git log *", "git status", "find *", "tree *"],
         category="subagent",
+        subagents=["*"],
+        handoff_targets=["orchestrator", "security-auditor"],
     ),
     AgentRole(
         slug="explorer-agent", name="Explorer Agent",
@@ -66,6 +70,7 @@ _r(
         can_read=True, can_write=False, can_execute=False, can_search=True,
         allowed_commands=["git log *", "git status", "find *", "grep *", "tree *", "cat *", "head *", "tail *"],
         category="subagent",
+        handoff_targets=["project-planner"],
     ),
     AgentRole(
         slug="security-auditor", name="Security Auditor",
@@ -73,6 +78,7 @@ _r(
         can_read=True, can_write=False, can_execute=False, can_search=True,
         allowed_commands=["npm audit", "yarn audit", "git log *", "git diff *", "grep *", "find *"],
         category="subagent",
+        handoff_targets=["backend-specialist"],
     ),
     AgentRole(
         slug="penetration-tester", name="Penetration Tester",
@@ -92,6 +98,7 @@ _r(
         ],
         allowed_paths=["tests/**", "test/**", "__tests__/**", "*.test.*", "*.spec.*"],
         category="subagent",
+        handoff_targets=["backend-specialist"],
     ),
     AgentRole(
         slug="debugger", name="Debugger",
@@ -103,6 +110,8 @@ _r(
             "git diff *", "git log *", "git blame *",
         ],
         category="subagent",
+        subagents=["backend-specialist", "frontend-specialist", "test-engineer"],
+        handoff_targets=["backend-specialist"],
     ),
     AgentRole(
         slug="database-architect", name="Database Architect",
@@ -195,3 +204,16 @@ def get_primary_agents() -> list[AgentRole]:
 
 def get_visible_agents() -> list[AgentRole]:
     return [r for r in AGENT_ROLES.values() if not r.hidden]
+
+
+def validate_agent_references() -> list[str]:
+    """Return list of errors for invalid subagent/handoff references."""
+    errors = []
+    for slug, role in AGENT_ROLES.items():
+        for ref in role.subagents:
+            if ref != "*" and ref not in AGENT_ROLES:
+                errors.append(f"{slug}.subagents references unknown agent: {ref}")
+        for ref in role.handoff_targets:
+            if ref not in AGENT_ROLES:
+                errors.append(f"{slug}.handoff_targets references unknown agent: {ref}")
+    return errors

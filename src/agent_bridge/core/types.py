@@ -31,6 +31,8 @@ class AgentRole:
     delegatable_agents: List[str] = field(default_factory=list)
     category: str = "subagent"
     hidden: bool = False
+    subagents: List[str] = field(default_factory=list)
+    handoff_targets: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -47,12 +49,18 @@ class ConversionResult:
         return len(self.errors) == 0
 
 
+class CaptureStatus(Enum):
+    NEW = "new"
+    MODIFIED = "modified"
+    UNCHANGED = "unchanged"
+
+
 @dataclass
 class CapturedFile:
     """Represents a single file that can be captured from IDE config back to .agent/."""
     ide_path: Path
     agent_path: Path
-    status: str  # "modified" | "new" | "unchanged"
+    status: CaptureStatus
     ide_name: str  # "cursor" | "kiro" | "copilot"
 
 

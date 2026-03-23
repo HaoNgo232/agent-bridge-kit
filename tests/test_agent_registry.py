@@ -67,3 +67,23 @@ def test_unknown_role_returns_none():
     role = get_agent_role("nonexistent")
     
     assert role is None
+
+
+def test_all_subagent_refs_exist():
+    """All subagents/handoff_targets must reference valid agent slugs."""
+    from agent_bridge.core.agent_registry import validate_agent_references
+    errors = validate_agent_references()
+    assert errors == [], f"Invalid agent references found:\n" + "\n".join(errors)
+
+
+def test_orchestrator_has_subagents():
+    """Orchestrator should have subagents=['*']."""
+    role = get_agent_role("orchestrator")
+    assert role.subagents == ["*"]
+
+
+def test_debugger_has_handoff_targets():
+    """Debugger should have handoff_targets pointing to valid agents."""
+    role = get_agent_role("debugger")
+    assert len(role.handoff_targets) > 0
+    assert "backend-specialist" in role.handoff_targets

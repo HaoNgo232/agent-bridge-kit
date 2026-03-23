@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from agent_bridge.converters._kiro_impl import apply_reverse_capture_kiro, reverse_convert_kiro
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 
 
 def test_reverse_kiro_agent_json_to_markdown(tmp_project_with_ide_outputs):
@@ -19,7 +19,7 @@ def test_reverse_kiro_agent_json_to_markdown(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=kiro_agent,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)
@@ -45,7 +45,7 @@ def test_reverse_kiro_skill_direct_copy(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=skill_md,
         agent_path=agent_dir / "skills" / skill_dir.name / "SKILL.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)
@@ -66,7 +66,7 @@ def test_reverse_kiro_prompt_to_workflow(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=prompt_file,
         agent_path=agent_dir / "workflows" / "plan.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)
@@ -86,7 +86,7 @@ def test_reverse_kiro_steering_to_rule(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=steering_file,
         agent_path=agent_dir / "rules" / "global.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)
@@ -106,7 +106,7 @@ def test_reverse_kiro_mcp_config(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=mcp_file,
         agent_path=agent_dir / "mcp_config.json",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)

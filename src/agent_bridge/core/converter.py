@@ -30,16 +30,35 @@ class BaseConverter(ABC):
         agent_dir: Path,
         verbose: bool = True,
     ) -> List[CapturedFile]:
-        """
-        Reverse-convert IDE files back to .agent/ format.
-
-        Dry-run style: tra ve danh sach file se capture, KHONG ghi vao .agent/.
-        Capture service se goi va thuc hien ghi.
-
-        Default: tra ve [] (no reverse support).
-        Cursor, Kiro, Copilot override method nay.
-        """
+        """Dry-run scan: return list of capturable files. Default: no support."""
         return []
+
+    def apply_reverse_capture(
+        self,
+        captured: CapturedFile,
+        project_path: Path,
+        agent_dir: Path,
+    ) -> bool:
+        """Apply reverse capture for one file. Default: not supported."""
+        return False
+
+    def build_bridge_meta_map(self, project_path: Path) -> Dict[str, str]:
+        """Return {ide_relative_path: agent_relative_path} for .bridge-meta.json."""
+        return {}
+
+    @property
+    def supports_capture(self) -> bool:
+        """Does this converter support reverse capture?"""
+        return False
+
+    @property
+    def mcp_output_path(self) -> Optional[str]:
+        """Relative path for MCP config output. e.g. '.cursor/mcp.json'"""
+        return None
+
+    def transform_mcp_config(self, config: Dict) -> Dict:
+        """Transform MCP config dict for this IDE format. Default: no-op."""
+        return config
 
     @property
     def name(self) -> str:

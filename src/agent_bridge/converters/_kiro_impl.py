@@ -20,7 +20,7 @@ from typing import Any, Dict, List
 
 import yaml
 
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 from agent_bridge.utils import Colors
 
 # =============================================================================
@@ -101,30 +101,24 @@ def _role_to_kiro_config(slug: str) -> dict:
 
 def extract_agent_metadata(content: str, filename: str) -> Dict[str, Any]:
     """Extract metadata from agent markdown content."""
-    metadata = {"name": "", "description": "", "instructions": ""}
+    from agent_bridge.core.frontmatter import FrontmatterParser
 
-    # Check existing frontmatter
-    fm_match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
-    if fm_match:
-        try:
-            existing = yaml.safe_load(fm_match.group(1))
-            if existing and isinstance(existing, dict):
-                metadata.update(existing)
-        except (yaml.YAMLError, ValueError, TypeError):
-            pass
+    metadata: Dict[str, Any] = {"name": "", "description": "", "instructions": ""}
 
-    # Extract name from H1
+    existing, _ = FrontmatterParser.extract(content)
+    if existing:
+        metadata.update(existing)
+
     name_match = re.search(r"^#\s+(.+?)(?:\s*[-–—]\s*(.+))?$", content, re.MULTILINE)
     if name_match:
-        metadata["name"] = name_match.group(1).strip()
-        if name_match.group(2):
+        if not metadata.get("name"):
+            metadata["name"] = name_match.group(1).strip()
+        if name_match.group(2) and not metadata.get("description"):
             metadata["description"] = name_match.group(2).strip()
 
-    # Fallback name
     if not metadata["name"]:
         metadata["name"] = filename.replace(".md", "").replace("-", " ").title()
 
-    # Extract description from content
     if not metadata.get("description"):
         desc_match = re.search(
             r"(?:You are|Role:|Description:)\s*(.+?)(?:\n\n|\n#)", content, re.IGNORECASE | re.DOTALL
@@ -132,8 +126,7 @@ def extract_agent_metadata(content: str, filename: str) -> Dict[str, Any]:
         if desc_match:
             metadata["description"] = desc_match.group(1).strip()[:200]
 
-    # Use content as prompt (without frontmatter)
-    prompt = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
+    prompt = FrontmatterParser.strip(content)
     metadata["prompt"] = prompt.strip()
 
     return metadata
@@ -727,7 +720,7 @@ def reverse_convert_kiro(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="kiro",
                 )
             )
@@ -741,7 +734,7 @@ def reverse_convert_kiro(
                     CapturedFile(
                         ide_path=d / "SKILL.md",
                         agent_path=agent_path,
-                        status="new",
+                        status=CaptureStatus.NEW,
                         ide_name="kiro",
                     )
                 )
@@ -754,7 +747,7 @@ def reverse_convert_kiro(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="kiro",
                 )
             )
@@ -767,7 +760,7 @@ def reverse_convert_kiro(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="kiro",
                 )
             )
@@ -779,7 +772,7 @@ def reverse_convert_kiro(
             CapturedFile(
                 ide_path=mcp_file,
                 agent_path=agent_path,
-                status="new",
+                status=CaptureStatus.NEW,
                 ide_name="kiro",
             )
         )

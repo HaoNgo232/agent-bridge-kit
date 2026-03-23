@@ -9,7 +9,7 @@ from agent_bridge.converters.copilot import CopilotConverter
 from agent_bridge.converters._cursor_impl import apply_reverse_capture_cursor
 from agent_bridge.converters._kiro_impl import apply_reverse_capture_kiro
 from agent_bridge.converters._copilot_impl import apply_reverse_capture_copilot
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 from tests.conftest import strip_and_normalize
 
 
@@ -27,7 +27,7 @@ def test_roundtrip_cursor_agent_body_preserved(tmp_project):
     captured = CapturedFile(
         ide_path=cursor_file,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="cursor",
     )
     apply_reverse_capture_cursor(captured, project, agent_dir)
@@ -52,7 +52,7 @@ def test_roundtrip_kiro_agent_body_preserved(tmp_project):
     captured = CapturedFile(
         ide_path=kiro_file,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="kiro",
     )
     apply_reverse_capture_kiro(captured, project, agent_dir)
@@ -77,7 +77,7 @@ def test_roundtrip_copilot_agent_body_preserved(tmp_project):
     captured = CapturedFile(
         ide_path=copilot_file,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="copilot",
     )
     apply_reverse_capture_copilot(captured, project, agent_dir)
@@ -111,7 +111,7 @@ def test_roundtrip_cursor_skill_content_preserved(tmp_project):
     captured = CapturedFile(
         ide_path=cursor_skill,
         agent_path=agent_path,
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="cursor",
     )
     apply_reverse_capture_cursor(captured, project, agent_dir)

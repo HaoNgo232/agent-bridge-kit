@@ -8,10 +8,16 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 from agent_bridge.core.converter import converter_registry
 
-# Chi ho tro 3 IDE: cursor, kiro, copilot
+# Derived from registry — no hardcoded list needed
+def _get_capture_ides() -> List[str]:
+    """Return IDE names that support reverse capture."""
+    return [c.name for c in converter_registry.all() if c.supports_capture]
+
+
+# Keep for backward compatibility
 CAPTURE_IDES = ["cursor", "kiro", "copilot"]
 
 BRIDGE_META_FILE = ".agent/.bridge-meta.json"
@@ -38,7 +44,7 @@ def _get_ide_mtime(path: Path) -> Optional[float]:
 
 def _determine_status(
     captured: CapturedFile, meta: Optional[Dict[str, Any]], project_path: Path
-) -> str:
+) -> CaptureStatus:
     """
     Xac dinh status: modified | new | unchanged.
 
@@ -47,33 +53,32 @@ def _determine_status(
     - unchanged: ide_path trong meta va khong modified
     """
     if not meta or "file_map" not in meta:
-        return "new"
+        return CaptureStatus.NEW
 
     file_map = meta.get("file_map", {})
     try:
         ide_str = str(captured.ide_path.relative_to(project_path)).replace("\\", "/")
     except ValueError:
-        return "new"
+        return CaptureStatus.NEW
 
     if ide_str not in file_map:
-        return "new"
+        return CaptureStatus.NEW
 
     ide_mtime = _get_ide_mtime(captured.ide_path)
     if ide_mtime is None:
-        return "new"
+        return CaptureStatus.NEW
 
-    # So sanh voi generated_at timestamp thay vi agent file mtime
     generated_at_str = meta.get("generated_at")
     if generated_at_str:
         from datetime import datetime, timezone
         try:
             generated_ts = datetime.fromisoformat(generated_at_str.replace("Z", "+00:00")).timestamp()
             if ide_mtime > generated_ts:
-                return "modified"
+                return CaptureStatus.MODIFIED
         except (ValueError, OSError):
             pass
 
-    return "unchanged"
+    return CaptureStatus.UNCHANGED
 
 
 def scan_for_captures(
@@ -112,16 +117,10 @@ def scan_for_captures(
 
 
 def _get_apply_reverse(ide_name: str):
-    """Lay apply_reverse function cho IDE."""
-    if ide_name == "cursor":
-        from agent_bridge.converters._cursor_impl import apply_reverse_capture_cursor
-        return apply_reverse_capture_cursor
-    if ide_name == "kiro":
-        from agent_bridge.converters._kiro_impl import apply_reverse_capture_kiro
-        return apply_reverse_capture_kiro
-    if ide_name == "copilot":
-        from agent_bridge.converters._copilot_impl import apply_reverse_capture_copilot
-        return apply_reverse_capture_copilot
+    """Lay apply_reverse function cho IDE via converter registry."""
+    converter = converter_registry.get(ide_name)
+    if converter and converter.supports_capture:
+        return converter.apply_reverse_capture
     return None
 
 
@@ -154,7 +153,7 @@ def execute_capture(
     for cf in files:
         # Strategy: agent_wins → skip if agent file exists and unchanged
         if strategy == "agent_wins":
-            if cf.status == "unchanged":
+            if cf.status == CaptureStatus.UNCHANGED:
                 counts["skipped"] += 1
                 continue
             agent_path = agent_dir / cf.agent_path.relative_to(project_path / ".agent") if cf.agent_path else None

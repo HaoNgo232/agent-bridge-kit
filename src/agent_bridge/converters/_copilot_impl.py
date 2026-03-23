@@ -12,7 +12,8 @@ from typing import Any, Dict, List
 import yaml
 
 from agent_bridge.core.agent_registry import get_agent_role as _get_role
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.frontmatter import FrontmatterParser
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 
 
 def _role_to_copilot_tools(slug: str) -> list[str]:
@@ -60,7 +61,6 @@ AGENT_HANDOFFS_MAP = {
     "debugger": [{"label": "Implement Fix", "agent": "backend-specialist", "prompt": "Implement the fix for the identified bug.", "send": False}],
 }
 
-_RE_FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 _RE_H1_NAME = re.compile(r"^#\s+(.+?)(?:\s*[-–—]\s*(.+))?$", re.MULTILINE)
 _RE_ROLE_PATTERNS = [
     re.compile(r"(?:You are|Role:|##\s*Role)[:\s]*(.+?)(?:\n\n|\n##|\n#\s)", re.IGNORECASE | re.DOTALL),
@@ -77,18 +77,13 @@ _RE_SKILL_PATTERNS = [
 def extract_agent_metadata(content: str, filename: str) -> Dict[str, Any]:
     """Extract metadata from agent markdown content."""
     metadata = {"name": "", "description": "", "role": "", "skills": []}
-    fm_match = _RE_FRONTMATTER.match(content)
-    if fm_match:
-        try:
-            existing = yaml.safe_load(fm_match.group(1))
-            if existing:
-                for key, value in existing.items():
-                    if key in ["skills", "tools"] and isinstance(value, str):
-                        metadata[key] = [s.strip() for s in value.split(",")]
-                    else:
-                        metadata[key] = value
-        except yaml.YAMLError:
-            pass
+    existing, _ = FrontmatterParser.extract(content)
+    if existing:
+        for key, value in existing.items():
+            if key in ["skills", "tools"] and isinstance(value, str):
+                metadata[key] = [s.strip() for s in value.split(",")]
+            else:
+                metadata[key] = value
     name_match = _RE_H1_NAME.search(content)
     if name_match:
         metadata["name"] = name_match.group(1).strip()
@@ -120,15 +115,25 @@ def generate_copilot_frontmatter(agent_slug: str, metadata: Dict[str, Any]) -> s
         description = f"Specialized agent for {agent_slug.replace('-', ' ')} tasks"
     frontmatter["description"] = description[:500] if len(description) > 500 else description
     tools = _role_to_copilot_tools(agent_slug)
-    subagents = AGENT_SUBAGENTS_MAP.get(agent_slug)
+    from agent_bridge.core.agent_registry import get_agent_role
+    role = get_agent_role(agent_slug)
+    subagents = role.subagents if role else AGENT_SUBAGENTS_MAP.get(agent_slug)
     if subagents:
         if "agent" not in tools:
             tools = [*tools, "agent"]
         frontmatter["agents"] = subagents
     frontmatter["tools"] = tools
-    handoffs = AGENT_HANDOFFS_MAP.get(agent_slug)
-    if handoffs:
+    handoff_targets = role.handoff_targets if role else None
+    if handoff_targets:
+        raw_handoffs = AGENT_HANDOFFS_MAP.get(agent_slug, [])
+        # Use registry targets, fall back to hardcoded map for prompt text
+        handoffs = raw_handoffs if raw_handoffs else [
+            {"label": f"Talk to {t}", "agent": t, "prompt": "", "send": False}
+            for t in handoff_targets
+        ]
         frontmatter["handoffs"] = handoffs
+    elif AGENT_HANDOFFS_MAP.get(agent_slug):
+        frontmatter["handoffs"] = AGENT_HANDOFFS_MAP[agent_slug]
     if agent_slug in ["code-archaeologist"]:
         frontmatter["user-invokable"] = False
     return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False, width=1000)
@@ -396,7 +401,7 @@ def reverse_convert_copilot(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="copilot",
                 )
             )
@@ -410,7 +415,7 @@ def reverse_convert_copilot(
                     CapturedFile(
                         ide_path=d / "SKILL.md",
                         agent_path=agent_path,
-                        status="new",
+                        status=CaptureStatus.NEW,
                         ide_name="copilot",
                     )
                 )
@@ -424,7 +429,7 @@ def reverse_convert_copilot(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="copilot",
                 )
             )
@@ -438,7 +443,7 @@ def reverse_convert_copilot(
                 CapturedFile(
                     ide_path=f,
                     agent_path=agent_path,
-                    status="new",
+                    status=CaptureStatus.NEW,
                     ide_name="copilot",
                 )
             )

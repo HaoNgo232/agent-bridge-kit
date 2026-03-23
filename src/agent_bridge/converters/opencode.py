@@ -43,6 +43,10 @@ class OpenCodeConverter(BaseConverter):
     ) -> bool:
         return copy_mcp_opencode(dest_root, force)
 
+    @property
+    def mcp_output_path(self) -> str:
+        return ".opencode/mcp.json"
+
     def clean(self, project_path: Path) -> bool:
         for sub in ["agents", "commands", "skills"]:
             p = project_path / ".opencode" / sub

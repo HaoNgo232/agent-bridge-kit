@@ -7,7 +7,7 @@ from agent_bridge.converters._cursor_impl import (
     apply_reverse_capture_cursor,
     reverse_convert_cursor,
 )
-from agent_bridge.core.types import CapturedFile
+from agent_bridge.core.types import CapturedFile, CaptureStatus
 from tests.conftest import strip_and_normalize
 
 
@@ -25,7 +25,7 @@ def test_reverse_cursor_agent(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=cursor_agent,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="cursor",
     )
     apply_reverse_capture_cursor(captured, project, agent_dir)
@@ -94,7 +94,7 @@ def test_reverse_cursor_skill(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=skill_md,
         agent_path=agent_dir / "skills" / skill_dir.name / "SKILL.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="cursor",
     )
     apply_reverse_capture_cursor(captured, project, agent_dir)
@@ -116,7 +116,7 @@ def test_reverse_cursor_strips_credit_line(tmp_project_with_ide_outputs):
     captured = CapturedFile(
         ide_path=cursor_agent,
         agent_path=agent_dir / "agents" / "orchestrator.md",
-        status="new",
+        status=CaptureStatus.NEW,
         ide_name="cursor",
     )
     apply_reverse_capture_cursor(captured, project, agent_dir)

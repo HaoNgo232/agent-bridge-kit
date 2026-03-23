@@ -43,8 +43,11 @@ class WindsurfConverter(BaseConverter):
         self, source_root: Path, dest_root: Path, force: bool = False
     ) -> bool:
         from agent_bridge.utils import install_mcp_for_ide
-
         return install_mcp_for_ide(source_root, dest_root, "windsurf")
+
+    @property
+    def mcp_output_path(self) -> str:
+        return ".windsurf/mcp_config.json"
 
     def clean(self, project_path: Path) -> bool:
         for sub in ["rules", "workflows"]:
