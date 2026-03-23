@@ -156,10 +156,14 @@ def execute_capture(
             if cf.status == CaptureStatus.UNCHANGED:
                 counts["skipped"] += 1
                 continue
-            agent_path = agent_dir / cf.agent_path.relative_to(project_path / ".agent") if cf.agent_path else None
-            if agent_path and agent_path.exists():
-                counts["skipped"] += 1
-                continue
+            if cf.agent_path:
+                try:
+                    agent_path = agent_dir / cf.agent_path.relative_to(project_path / ".agent")
+                except ValueError:
+                    agent_path = cf.agent_path
+                if agent_path.exists():
+                    counts["skipped"] += 1
+                    continue
 
         apply_fn = _get_apply_reverse(cf.ide_name)
         if not apply_fn:

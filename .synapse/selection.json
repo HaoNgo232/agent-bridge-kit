@@ -1,5 +1,14 @@
 {
   "selected_files": [
+    ".gitignore",
+    ".windsurfrules",
+    "Makefile",
+    "docs",
+    "llms.txt",
+    "pyproject.toml",
+    "scripts",
+    "src",
+    "src/agent_bridge",
     "src/agent_bridge/__init__.py",
     "src/agent_bridge/builtin_vault",
     "src/agent_bridge/cli.py",

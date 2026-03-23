@@ -455,21 +455,27 @@ def apply_reverse_capture_copilot(
     captured: CapturedFile, project_path: Path, agent_dir: Path
 ) -> bool:
     """Thuc hien ghi noi dung reverse-converted vao agent_path."""
-    ide_path = captured.ide_path
+    ide_path = captured.ide_path.resolve()
     agent_path = captured.agent_path
     if not ide_path.exists():
         return False
 
-    github_root = project_path / ".github"
+    github_root = (project_path / ".github").resolve()
 
-    if github_root / "agents" in ide_path.parents or ide_path.parent == github_root / "agents":
+    try:
+        relative = ide_path.relative_to(github_root)
+        top_dir = relative.parts[0] if relative.parts else ""
+    except ValueError:
+        return False
+
+    if top_dir == "agents":
         content = ide_path.read_text(encoding="utf-8")
         body = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL).strip()
         agent_path.parent.mkdir(parents=True, exist_ok=True)
         agent_path.write_text(body, encoding="utf-8")
         return True
 
-    if github_root / "skills" in ide_path.parents:
+    if top_dir == "skills":
         skill_dir = ide_path.parent
         content = ide_path.read_text(encoding="utf-8")
         fm_match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
@@ -496,7 +502,7 @@ def apply_reverse_capture_copilot(
                     shutil.copytree(item, dest_skill_dir / item.name, dirs_exist_ok=True)
         return True
 
-    if github_root / "prompts" in ide_path.parents or ide_path.parent == github_root / "prompts":
+    if top_dir == "prompts":
         content = ide_path.read_text(encoding="utf-8")
         fm_match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
         if fm_match:
@@ -515,7 +521,7 @@ def apply_reverse_capture_copilot(
         agent_path.write_text(body, encoding="utf-8")
         return True
 
-    if github_root / "instructions" in ide_path.parents or ide_path.parent == github_root / "instructions":
+    if top_dir == "instructions":
         content = ide_path.read_text(encoding="utf-8")
         fm_match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
         if fm_match:

@@ -19,6 +19,7 @@ class FrontmatterParser:
         Returns:
             (metadata_dict or None, body_without_frontmatter)
         """
+        content = content.replace("\r\n", "\n")
         match = _RE_FRONTMATTER.match(content)
         if not match:
             return None, content
@@ -54,7 +55,7 @@ class FrontmatterParser:
     @staticmethod
     def strip(content: str) -> str:
         """Remove frontmatter block from content, returning only the body."""
-        return _RE_FRONTMATTER.sub("", content)
+        return _RE_FRONTMATTER.sub("", content.replace("\r\n", "\n"))
 
     @staticmethod
     def strip_credit_line(content: str) -> str:

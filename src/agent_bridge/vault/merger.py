@@ -35,6 +35,7 @@ def merge_source_into_project(
         return counts
 
     project_agent_dir.mkdir(parents=True, exist_ok=True)
+    project_agent_dir_resolved = project_agent_dir.resolve()
 
     for subdir in MERGE_SUBDIRS:
         src = source_dir / subdir
@@ -44,7 +45,16 @@ def merge_source_into_project(
         dst.mkdir(parents=True, exist_ok=True)
         merged = 0
         for item in src.iterdir():
+            # Block symlinks from vaults
+            if item.is_symlink():
+                continue
             dest_item = dst / item.name
+            # Block path traversal
+            try:
+                if not str(dest_item.resolve()).startswith(str(project_agent_dir_resolved)):
+                    continue
+            except (OSError, ValueError):
+                continue
             if dest_item.exists() and strategy == MergeStrategy.PROJECT_WINS:
                 continue
             if dest_item.exists() and strategy == MergeStrategy.VAULT_WINS:

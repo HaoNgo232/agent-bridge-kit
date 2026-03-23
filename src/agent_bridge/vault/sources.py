@@ -3,11 +3,14 @@ Vault source strategies (Strategy pattern).
 Each source knows how to sync/validate itself.
 """
 
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
 import subprocess
 from typing import Dict, Any
+
+_SAFE_GIT_URL = re.compile(r"^(https?://|git@)[a-zA-Z0-9._\-/:%@]+$")
 
 
 class VaultSource(ABC):
@@ -29,6 +32,10 @@ class VaultSource(ABC):
 
 class GitSource(VaultSource):
     def __init__(self, url: str):
+        if not _SAFE_GIT_URL.match(url):
+            raise ValueError(f"Unsafe git URL: {url!r}")
+        if url.startswith("-"):
+            raise ValueError(f"URL cannot start with '-': {url!r}")
         self.url = url
 
     def sync(self, cache_dir: Path, verbose: bool = True) -> Dict[str, Any]:
@@ -40,7 +47,7 @@ class GitSource(VaultSource):
                 cache_dir.parent.mkdir(parents=True, exist_ok=True)
                 if cache_dir.exists():
                     shutil.rmtree(cache_dir)
-                subprocess.run(["git", "clone", "--depth", "1", self.url, str(cache_dir)], check=True, capture_output=True)
+                subprocess.run(["git", "clone", "--depth", "1", "--", self.url, str(cache_dir)], check=True, capture_output=True)
 
             for subdir_name in [".agent", "."]:
                 agent_dir = cache_dir / subdir_name
@@ -55,7 +62,7 @@ class GitSource(VaultSource):
 
     def validate(self) -> bool:
         try:
-            result = subprocess.run(["git", "ls-remote", "--exit-code", self.url], capture_output=True, timeout=15)
+            result = subprocess.run(["git", "ls-remote", "--exit-code", "--", self.url], capture_output=True, timeout=15)
             return result.returncode == 0
         except Exception:
             return False

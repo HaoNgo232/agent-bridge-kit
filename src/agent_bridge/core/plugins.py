@@ -326,13 +326,22 @@ class PluginRunner:
         if not command_str:
             return "skipped"
 
+        import shlex
+        try:
+            cmd_parts = shlex.split(command_str)
+        except ValueError as e:
+            return f"error: invalid command syntax: {e}"
+
+        if not cmd_parts:
+            return "skipped"
+
         if verbose:
             print(f"    {Colors.CYAN}Running: {command_str}{Colors.ENDC}")
 
         try:
             result = subprocess.run(
-                command_str,
-                shell=True,
+                cmd_parts,
+                shell=False,
                 capture_output=True,
                 text=True,
                 cwd=str(project_root),

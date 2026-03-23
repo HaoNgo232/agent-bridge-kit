@@ -84,36 +84,47 @@ def save_snapshot(
 
     contents = _collect_contents(agent_dir)
 
-    existing = _load_manifest(snapshot_path)
-    if existing:
-        version = existing.get("version", 1) + 1
-        created = existing.get("created", now)
-    else:
-        version = 1
-        created = now
+    # Atomic write: write to temp dir, then rename to avoid race conditions
+    import os
+    import tempfile
+    SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.mkdtemp(dir=SNAPSHOTS_DIR, prefix=f".{normalized_name}_tmp_"))
+    try:
+        existing = _load_manifest(snapshot_path)
+        if existing:
+            version = existing.get("version", 1) + 1
+            created = existing.get("created", now)
+        else:
+            version = 1
+            created = now
 
-    if snapshot_path.exists():
-        shutil.rmtree(snapshot_path, ignore_errors=True)
-    snapshot_path.mkdir(parents=True, exist_ok=True)
-    agent_dest = snapshot_path / ".agent"
-    shutil.copytree(agent_dir, agent_dest)
+        agent_dest = tmp_dir / ".agent"
+        shutil.copytree(agent_dir, agent_dest)
 
-    manifest = {
-        "name": normalized_name,
-        "description": description,
-        "created": created,
-        "updated": now,
-        "version": version,
-        "source": {
-            "project": str(agent_dir.parent),
-            "ides_captured_from": [],
-        },
-        "contents": contents,
-        "tags": tags,
-    }
-    (snapshot_path / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+        manifest = {
+            "name": normalized_name,
+            "description": description,
+            "created": created,
+            "updated": now,
+            "version": version,
+            "source": {
+                "project": str(agent_dir.parent),
+                "ides_captured_from": [],
+            },
+            "contents": contents,
+            "tags": tags,
+        }
+        (tmp_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+        # Atomic swap
+        if snapshot_path.exists():
+            shutil.rmtree(snapshot_path)
+        os.rename(str(tmp_dir), str(snapshot_path))
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
     return SnapshotInfo(
         name=normalized_name,

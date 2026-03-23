@@ -252,14 +252,20 @@ def convert_agent_to_kiro(source_path: Path, dest_path: Path, mcp_server_names: 
     """Convert agent to Kiro JSON format with full configuration."""
     try:
         content = source_path.read_text(encoding="utf-8")
+        content = content.replace("\x00", "")  # strip null bytes
         agent_slug = source_path.stem.lower()
 
         metadata = extract_agent_metadata(content, source_path.name)
         agent_json = generate_kiro_agent_json(agent_slug, metadata, mcp_server_names)
 
+        json_str = json.dumps(agent_json, indent=2, ensure_ascii=False)
+        json_str.encode("utf-8")  # validate encodable before writing
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        dest_path.write_text(json.dumps(agent_json, indent=2, ensure_ascii=False), encoding="utf-8")
+        dest_path.write_text(json_str, encoding="utf-8")
         return True
+    except (UnicodeEncodeError, UnicodeDecodeError) as e:
+        print(f"  Error: Invalid encoding in {source_path.name}: {e}")
+        return False
     except Exception as e:
         print(f"  Error converting agent {source_path.name}: {e}")
         return False

@@ -172,9 +172,9 @@ def test_runner_runs_when_condition_met(tmp_path: Path) -> None:
 
     assert results.get("test-plugin") == "ok"
     mock_run.assert_called_once()
-    # Verify the correct command was run
+    # Verify the correct command was run as a list (shell=False)
     call_args = mock_run.call_args
-    assert "test-cli init --ai kiro" in call_args[0][0]
+    assert call_args[0][0] == ["test-cli", "init", "--ai", "kiro"]
 
 
 def test_runner_uses_correct_ide_command(tmp_path: Path) -> None:
