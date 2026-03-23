@@ -6,13 +6,34 @@
     "read",
     "write",
     "search",
-    "knowledge"
+    "knowledge",
+    "@ddg-search",
+    "@shadcn",
+    "@context7",
+    "@sequentialthinking",
+    "@time",
+    "@chrome-devtools",
+    "@next-devtools"
   ],
   "allowedTools": [
     "read",
     "write",
     "search",
-    "knowledge"
+    "knowledge",
+    "@ddg-search",
+    "@shadcn",
+    "@context7",
+    "@sequentialthinking",
+    "@time",
+    "@chrome-devtools",
+    "@next-devtools",
+    "@ddg-search/*",
+    "@shadcn/*",
+    "@context7/*",
+    "@sequentialthinking/*",
+    "@time/*",
+    "@chrome-devtools/*",
+    "@next-devtools/*"
   ],
   "includeMcpJson": true,
   "resources": [

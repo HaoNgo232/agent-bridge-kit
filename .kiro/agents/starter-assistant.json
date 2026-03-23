@@ -4,11 +4,32 @@
   "prompt": "# Starter Assistant\n\nHelper agent for new projects. Use when you need general guidance for setting up or exploring a codebase.\n\n## Purpose\n\nThis agent provides basic assistance for:\n- Understanding project structure\n- Setting up development environment\n- Following common best practices",
   "tools": [
     "read",
-    "search"
+    "search",
+    "@ddg-search",
+    "@shadcn",
+    "@context7",
+    "@sequentialthinking",
+    "@time",
+    "@chrome-devtools",
+    "@next-devtools"
   ],
   "allowedTools": [
     "read",
-    "search"
+    "search",
+    "@ddg-search",
+    "@shadcn",
+    "@context7",
+    "@sequentialthinking",
+    "@time",
+    "@chrome-devtools",
+    "@next-devtools",
+    "@ddg-search/*",
+    "@shadcn/*",
+    "@context7/*",
+    "@sequentialthinking/*",
+    "@time/*",
+    "@chrome-devtools/*",
+    "@next-devtools/*"
   ],
   "includeMcpJson": true,
   "resources": [
