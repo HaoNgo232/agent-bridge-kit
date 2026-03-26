@@ -124,6 +124,50 @@ def _get_apply_reverse(ide_name: str):
     return None
 
 
+def _auto_determine_strategy(files: List[CapturedFile]) -> str:
+    """Auto-select optimal strategy based on file analysis."""
+    modified_count = sum(1 for f in files if f.status == CaptureStatus.MODIFIED)
+    new_count = sum(1 for f in files if f.status == CaptureStatus.NEW)
+    
+    if new_count > modified_count:
+        return "ide_wins"  # User created new files in IDE
+    elif modified_count == 0 and new_count == 0:
+        return "smart"      # Nothing changed, smart will skip anyway
+    else:
+        return "smart"     # Mixed case, let smart logic decide
+
+
+def _show_capture_preview(files: List[CapturedFile], project_path: Path) -> None:
+    """Show what will change before capture."""
+    from difflib import unified_diff
+    from agent_bridge.utils.colors import Colors
+    
+    print(f"\n{Colors.CYAN}📋 Capture Preview:{Colors.ENDC}\n")
+    
+    for cf in files[:5]:  # Show first 5
+        agent_rel = cf.agent_path.relative_to(project_path)
+        if cf.status == CaptureStatus.NEW:
+            print(f"  {Colors.GREEN}+ NEW:{Colors.ENDC} {agent_rel}")
+        elif cf.status == CaptureStatus.MODIFIED:
+            print(f"  {Colors.YELLOW}~ MODIFIED:{Colors.ENDC} {agent_rel}")
+            
+            # Show brief diff if possible
+            try:
+                if cf.agent_path.exists():
+                    old_lines = cf.agent_path.read_text(encoding="utf-8").splitlines()
+                    new_lines = cf.ide_path.read_text(encoding="utf-8").splitlines()
+                    diff_lines = list(unified_diff(old_lines, new_lines, n=1))
+                    
+                    added = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
+                    removed = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+                    print(f"    ({Colors.GREEN}+{added}{Colors.ENDC}, {Colors.RED}-{removed}{Colors.ENDC} lines)")
+            except Exception:
+                print("    (diff unavailable)")
+    
+    if len(files) > 5:
+        print(f"\n  ... and {len(files) - 5} more files")
+
+
 def execute_capture(
     project_path: Path,
     files: List[CapturedFile],
@@ -132,16 +176,29 @@ def execute_capture(
 ) -> Dict[str, Any]:
     """
     Thuc hien capture: ghi cac file da chon vao .agent/.
-
-    Args:
-        project_path: Duong dan project root
-        files: Danh sach CapturedFile da chon
-        strategy: ide_wins | agent_wins | ask (ask khong dung trong non-interactive)
-        dry_run: True = khong ghi, chi hien thi
-
-    Returns:
-        Dict voi counts: captured, skipped, errors
     """
+    from agent_bridge.utils.colors import Colors
+    import questionary
+
+    if not files:
+        return {"captured": 0, "skipped": 0, "errors": 0}
+
+    # Auto-determine strategy if it was "smart" or "ask"
+    if strategy in ("smart", "ask"):
+        strategy = _auto_determine_strategy(files)
+
+    if not dry_run:
+        _show_capture_preview(files, project_path)
+        
+        # In TUI, we might want to confirm again here if not already confirmed in tui.py
+        # But for CLI, we definitely want a confirmation
+        if not questionary.confirm(
+            f"Apply these {len(files)} changes to .agent/?",
+            default=True,
+        ).ask():
+            print(f"{Colors.YELLOW}Capture cancelled.{Colors.ENDC}")
+            return {"cancelled": True}
+
     agent_dir = project_path / ".agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
 

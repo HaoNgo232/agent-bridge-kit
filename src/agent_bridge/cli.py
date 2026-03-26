@@ -160,6 +160,13 @@ def _handle_init(args, registry):
     )
     use_tui = not has_flags and not getattr(args, "no_interactive", False) and not getattr(args, "force", False)
 
+    # Pre-flight checks for CLI mode
+    if not use_tui:
+        error = _preflight_validation(args, project_path, registry)
+        if error:
+            print(f"{Colors.RED}✗ Pre-flight validation failed:{Colors.ENDC} {error}")
+            return
+
     from_snapshot = getattr(args, "from_snapshot", None)
 
     if use_tui and not from_snapshot:
@@ -197,10 +204,57 @@ def _handle_init(args, registry):
             else:
                 print(f"{Colors.RED}{result['error']}{Colors.ENDC}")
         else:
+            total_agents = 0
             for name, conv_result in result.items():
                 if conv_result and getattr(conv_result, "ok", True):
-                    print(f"{Colors.GREEN}{name} format created{Colors.ENDC}")
-            print(f"\n{Colors.GREEN}Initialization complete!{Colors.ENDC}")
+                    total_agents += getattr(conv_result, "agents", 0)
+                    print(f"{Colors.GREEN}✓ {name} format created{Colors.ENDC}")
+            
+            # Contextual success message
+            _celebrate_success("init", {
+                "formats": formats,
+                "agents": total_agents
+            })
+
+
+def _preflight_validation(args, project_path: Path, registry) -> Optional[str]:
+    """Validate conditions before expensive operations."""
+    # Check: Existing IDE configs without --force
+    selected_ides = _get_selected_formats(args, registry)
+    existing_ides = []
+    
+    for ide in selected_ides:
+        conv = registry.get(ide)
+        if conv:
+            output_dir = project_path / conv.format_info.output_dir
+            if output_dir.exists() and any(output_dir.iterdir()) and not getattr(args, 'force', False):
+                existing_ides.append(ide)
+    
+    if existing_ides:
+        return f"IDE configs already exist: {', '.join(existing_ides)}. Use --force to overwrite or 'agent-bridge clean' first."
+    
+    return None
+
+
+def _celebrate_success(action: str, details: dict) -> None:
+    """Generate contextual success message with next steps."""
+    if action == "init":
+        formats = details.get("formats", [])
+        agents = details.get("agents", 0)
+        
+        print(f"\n{Colors.GREEN}✨ Success!{Colors.ENDC} Your project is now AI-ready")
+        print(f"  📦 Generated configs for: {', '.join(formats)}")
+        print(f"  🤖 {agents} agents ready to assist")
+        print(f"\n{Colors.CYAN}What's next?{Colors.ENDC}")
+        print(f"  1. Open your IDE and start coding with AI assistance")
+        print(f"  2. Run {Colors.BOLD}'agent-bridge status'{Colors.ENDC} to verify everything")
+        print(f"  3. Later: {Colors.BOLD}'agent-bridge capture{Colors.ENDC}' to sync changes back\n")
+    
+    elif action == "capture":
+        captured = details.get('captured', 0)
+        print(f"\n{Colors.GREEN}📥 Captured {captured} changes successfully!{Colors.ENDC}")
+        print(f"  💡 Your .agent/ directory is now updated with IDE changes")
+        print(f"  💾 Consider saving a snapshot: {Colors.CYAN}'agent-bridge snapshot save <name>'{Colors.ENDC}")
 
 
 def _handle_capture(args):
@@ -226,15 +280,15 @@ def _handle_capture(args):
     strategy = getattr(args, "strategy", "ask")
 
     if not has_flags or strategy == "ask":
-        success = run_capture_tui(project_path, files, strategy, dry_run)
-        if success:
-            print(f"\n{Colors.GREEN}Capture complete!{Colors.ENDC}")
+        run_capture_tui(project_path, files, strategy, dry_run)
     else:
         result = execute_capture(project_path, files, strategy=strategy, dry_run=dry_run)
+        if result.get("cancelled"):
+            return
         if dry_run:
             print(f"{Colors.CYAN}Would capture {result.get('would_capture', 0)} files.{Colors.ENDC}")
         else:
-            print(f"{Colors.GREEN}Captured: {result.get('captured', 0)} files.{Colors.ENDC}")
+            _celebrate_success("capture", {"captured": result.get("captured", 0)})
 
 
 def _handle_snapshot(args):

@@ -181,26 +181,65 @@ def run_capture_tui(
     if not files:
         return False
 
-    choices = []
-    for cf in files:
-        status_str = f"[{cf.status.value}]" if cf.status else ""
-        label = f"{status_str} {cf.ide_path.name} ({cf.ide_name})"
-        choices.append(questionary.Choice(label, value=cf, checked=True))
+    from agent_bridge.core.types import CaptureStatus
 
-    selected = questionary.checkbox(
+    # Group files by IDE and status
+    choices = []
+    
+    for ide_name in ["cursor", "kiro", "copilot"]:
+        ide_files = [cf for cf in files if cf.ide_name == ide_name]
+        if not ide_files:
+            continue
+            
+        choices.append(Separator(f"--- {ide_name.upper()} ({len(ide_files)} files) ---"))
+        
+        # Group by status within IDE
+        for status in [CaptureStatus.NEW, CaptureStatus.MODIFIED]:
+            status_files = [cf for cf in ide_files if cf.status == status]
+            if status_files:
+                choices.append(questionary.Choice(
+                        f"  📁 {status.value.upper()} files ({len(status_files)})",
+                        value=f"group:{ide_name}:{status.value}",
+                        checked=True
+                    ))
+                
+                # Individual files (indented)
+                for cf in status_files:
+                    label = f"    📄 {cf.ide_path.name}"
+                    choices.append(questionary.Choice(label, value=cf, checked=True))
+
+    selected_raw = questionary.checkbox(
         "Select files to capture:",
         choices=choices,
         style=CUSTOM_STYLE,
         instruction="Space=toggle, Enter=confirm",
     ).ask()
 
-    if not selected:
+    if not selected_raw:
         print(f"{Colors.YELLOW}No files selected.{Colors.ENDC}")
         return False
 
-    result = execute_capture(project_path, selected, strategy=strategy, dry_run=dry_run)
+    # Process group selections
+    selected_files = []
+    groups = [item for item in selected_raw if isinstance(item, str) and item.startswith("group:")]
+    individual_files = [item for item in selected_raw if not isinstance(item, str)]
+    
+    selected_files.extend(individual_files)
+    
+    for g in groups:
+        _, ide_name, status_val = g.split(":")
+        group_files = [cf for cf in files if cf.ide_name == ide_name and cf.status.value == status_val]
+        for gf in group_files:
+            if gf not in selected_files:
+                selected_files.append(gf)
+
+    result = execute_capture(project_path, selected_files, strategy=strategy, dry_run=dry_run)
+    
+    if result.get("cancelled"):
+        return False
+        
     if dry_run:
-        print(f"{Colors.CYAN}Would capture {len(selected)} files.{Colors.ENDC}")
+        print(f"{Colors.CYAN}Would capture {len(selected_files)} files.{Colors.ENDC}")
     else:
         print(f"{Colors.GREEN}Captured {result.get('captured', 0)} files.{Colors.ENDC}")
     return True
@@ -255,21 +294,144 @@ def run_default_menu(registry) -> bool:
         return True
 
     elif action == "snapshot":
-        print(f"\n{Colors.CYAN}Snapshot commands:{Colors.ENDC}")
-        print("  agent-bridge snapshot save <name>")
-        print("  agent-bridge snapshot list")
-        print("  agent-bridge snapshot restore <name>")
-        print("  agent-bridge snapshot delete <name>")
-        return True
+        return _handle_snapshot_tui(project_path, registry)
 
     elif action == "vault":
-        print(f"\n{Colors.CYAN}Vault commands:{Colors.ENDC}")
-        print("  agent-bridge vault list")
-        print("  agent-bridge vault add <name> <url>")
-        print("  agent-bridge vault sync")
-        return True
+        return _handle_vault_tui(project_path, registry)
 
     return False
+
+
+def _handle_snapshot_tui(project_path: Path, registry) -> bool:
+    """Luong TUI day du de quan ly snapshot."""
+    from agent_bridge.services.snapshot_service import (
+        list_snapshots,
+        save_snapshot,
+        restore_snapshot,
+        delete_snapshot,
+        get_snapshot
+    )
+    
+    action = questionary.select(
+        "Snapshot Management:",
+        choices=[
+            questionary.Choice("💾 Save current .agent/ state", value="save"),
+            questionary.Choice("📜 View saved snapshots", value="list"),
+            questionary.Choice("⏪ Restore from snapshot", value="restore"),
+            questionary.Choice("🗑️  Delete a snapshot", value="delete"),
+            questionary.Choice("⬅️  Back to main menu", value="back"),
+        ],
+        style=CUSTOM_STYLE,
+    ).ask()
+    
+    if action == "back" or not action:
+        return run_default_menu(registry)
+    
+    agent_dir = project_path / ".agent"
+    
+    if action == "save":
+        if not agent_dir.exists():
+            print(f"{Colors.RED}No .agent/ directory found. Run 'init' first.{Colors.ENDC}")
+        else:
+            name = questionary.text("Snapshot name:", style=CUSTOM_STYLE).ask()
+            if name:
+                description = questionary.text("Description (optional):", style=CUSTOM_STYLE).ask()
+                save_snapshot(name, agent_dir, description or "")
+                print(f"{Colors.GREEN}✓ Snapshot '{name}' saved!{Colors.ENDC}")
+    
+    elif action == "list":
+        snapshots = list_snapshots()
+        if not snapshots:
+            print(f"{Colors.YELLOW}No snapshots found.{Colors.ENDC}")
+        else:
+            print(f"\n{Colors.HEADER}Saved Snapshots:{Colors.ENDC}")
+            for s in snapshots:
+                print(f"  {Colors.BOLD}{s.name:<20}{Colors.ENDC} (v{s.version}) - {s.description or '(no description)'}")
+    
+    elif action == "restore":
+        snapshots = list_snapshots()
+        if not snapshots:
+            print(f"{Colors.YELLOW}No snapshots found.{Colors.ENDC}")
+        else:
+            choices = [questionary.Choice(s.name, value=s.name) for s in snapshots]
+            name = questionary.select("Restore from which snapshot?", choices=choices, style=CUSTOM_STYLE).ask()
+            if name:
+                if restore_snapshot(agent_dir, name):
+                    print(f"{Colors.GREEN}✓ Restored successfully from '{name}'{Colors.ENDC}")
+                else:
+                    print(f"{Colors.RED}Restore failed.{Colors.ENDC}")
+
+    elif action == "delete":
+        snapshots = list_snapshots()
+        if not snapshots:
+            print(f"{Colors.YELLOW}No snapshots found.{Colors.ENDC}")
+        else:
+            choices = [questionary.Choice(s.name, value=s.name) for s in snapshots]
+            name = questionary.select("Delete which snapshot?", choices=choices, style=CUSTOM_STYLE).ask()
+            if name:
+                confirm = questionary.confirm(f"Are you sure you want to delete '{name}'?", default=False).ask()
+                if confirm and delete_snapshot(name):
+                    print(f"{Colors.GREEN}✓ Snapshot '{name}' deleted.{Colors.ENDC}")
+
+    return _handle_snapshot_tui(project_path, registry)
+
+
+def _handle_vault_tui(project_path: Path, registry) -> bool:
+    """Luong TUI day du de quan ly vault."""
+    from agent_bridge.vault import VaultManager
+    
+    vm = VaultManager()
+    
+    action = questionary.select(
+        "Vault Management:",
+        choices=[
+            questionary.Choice("📜 List registered vaults", value="list"),
+            questionary.Choice("➕ Add a new vault", value="add"),
+            questionary.Choice("🔄 Sync all vaults", value="sync"),
+            questionary.Choice("🗑️  Remove a vault", value="remove"),
+            questionary.Choice("⬅️  Back to main menu", value="back"),
+        ],
+        style=CUSTOM_STYLE,
+    ).ask()
+    
+    if action == "back" or not action:
+        return run_default_menu(registry)
+    
+    if action == "list":
+        vaults = vm.list_vaults()
+        if not vaults:
+            print(f"{Colors.YELLOW}No vaults registered.{Colors.ENDC}")
+        else:
+            print(f"\n{Colors.HEADER}Registered Vaults:{Colors.ENDC}")
+            for v in vaults:
+                status = f"{Colors.GREEN}●{Colors.ENDC}" if v["enabled"] else f"{Colors.RED}○{Colors.ENDC}"
+                print(f"  {status} {Colors.BOLD}{v['name']:<15}{Colors.ENDC} - {v['url']}")
+    
+    elif action == "add":
+        _tui_add_vault( (project_path / ".agent").exists() )
+    
+    elif action == "sync":
+        print(f"{Colors.CYAN}Syncing vaults...{Colors.ENDC}")
+        results = vm.sync()
+        for name, stats in results.items():
+            if stats.get("status") == "ok":
+                print(f"  {Colors.GREEN}✓ {name}{Colors.ENDC}: {stats.get('agents', 0)} agents, {stats.get('skills', 0)} skills")
+            else:
+                print(f"  {Colors.RED}✗ {name}{Colors.ENDC}: {stats.get('status', 'unknown')}")
+
+    elif action == "remove":
+        vaults = vm.list_vaults()
+        if not vaults:
+            print(f"{Colors.YELLOW}No vaults to remove.{Colors.ENDC}")
+        else:
+            choices = [questionary.Choice(v["name"], value=v["name"]) for v in vaults]
+            name = questionary.select("Remove which vault?", choices=choices, style=CUSTOM_STYLE).ask()
+            if name:
+                confirm = questionary.confirm(f"Remove vault '{name}' and delete cache?", default=False).ask()
+                if confirm and vm.remove(name):
+                    print(f"{Colors.GREEN}✓ Vault '{name}' removed.{Colors.ENDC}")
+
+    return _handle_vault_tui(project_path, registry)
 
 
 def _tui_add_vault(has_local_agent: bool) -> str | None:

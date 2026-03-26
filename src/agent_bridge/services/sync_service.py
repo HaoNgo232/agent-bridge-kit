@@ -54,8 +54,30 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
     if not has_success:
         if verbose:
             print_error("All vault syncs failed")
-            for name, stats in sync_results.items():
-                print(f"    {name}: {stats.get('status', 'unknown')}")
+            
+            # Analyze failure types
+            network_errors = [name for name, stats in sync_results.items() 
+                            if "network" in str(stats.get("status", "")).lower() or "timeout" in str(stats.get("status", "")).lower()]
+            auth_errors = [name for name, stats in sync_results.items() 
+                          if "auth" in str(stats.get("status", "")).lower() or "permission" in str(stats.get("status", "")).lower() or "publickey" in str(stats.get("status", "")).lower()]
+            
+            if network_errors:
+                print_info("Network issues detected. Check your internet connection.")
+                print(f"  Affected vaults: {', '.join(network_errors)}")
+            
+            if auth_errors:
+                print_info("Authentication issues detected.")
+                print(f"  Check SSH keys or access tokens for: {', '.join(auth_errors)}")
+                print(f"  💡 Quick fix: {Colors.CYAN}ssh -T git@github.com{Colors.ENDC} to test SSH")
+            
+            if not network_errors and not auth_errors:
+                for name, stats in sync_results.items():
+                    print(f"    {Colors.RED}✗ {name}{Colors.ENDC}: {stats.get('status', 'unknown')}")
+
+            print(f"\n{Colors.CYAN}Recovery options:{Colors.ENDC}")
+            print(f"  • Check vault URLs: {Colors.BOLD}agent-bridge vault list{Colors.ENDC}")
+            print(f"  • Test individual vault: {Colors.BOLD}agent-bridge vault sync --name <vault>{Colors.ENDC}")
+            print(f"  • Continue offline: {Colors.BOLD}agent-bridge init --source project{Colors.ENDC}")
         return
 
     # Buoc 2: Merge vao project

@@ -9,11 +9,20 @@ from agent_bridge.utils import Colors
 
 def display_status(status: ProjectStatus) -> None:
     """Print formatted status dashboard with grouped display."""
-
-    # Project header
-    print(f"\n{Colors.BOLD}📍 Project:{Colors.ENDC} {status.project_path}")
+    
+    print(f"\n{Colors.BOLD}📊 Agent Bridge Dashboard{Colors.ENDC}")
+    print(f"{Colors.BOLD}📍 Project:{Colors.ENDC} {status.project_path}")
+    
+    # Quick summary bar
+    total_agents = status.agent_counts.get('agents', 0)
+    total_skills = status.agent_counts.get('skills', 0)
+    active_vaults = len([v for v in status.vault_statuses if v.enabled])
+    init_ides = len([i for i in status.ide_statuses if i.initialized])
+    
+    print(f"\n{Colors.CYAN}📈 Summary:{Colors.ENDC} {total_agents} agents • {total_skills} skills • {active_vaults} vaults • {init_ides} IDEs")
 
     # Source with summary line
+    print()
     if status.agent_dir_exists:
         counts = status.agent_counts
         total = sum(counts.values())
@@ -28,15 +37,15 @@ def display_status(status: ProjectStatus) -> None:
         print(f"{Colors.BOLD}📦 Source:{Colors.ENDC}  {Colors.RED}✗ .agent/ not found{Colors.ENDC}")
 
     # Vaults — grouped by status
-    active_vaults = [v for v in status.vault_statuses if v.enabled]
-    print(f"{Colors.BOLD}🔗 Vaults ({len(active_vaults)} active):{Colors.ENDC}")
+    active_vaults_list = [v for v in status.vault_statuses if v.enabled]
+    print(f"{Colors.BOLD}🔗 Vaults ({len(active_vaults_list)} active):{Colors.ENDC}")
 
-    if not active_vaults:
+    if not active_vaults_list:
         print(f"   {Colors.YELLOW}⚠ No vaults registered — run 'agent-bridge vault add'{Colors.ENDC}")
     else:
-        synced = [v for v in active_vaults if v.is_cached and not v.stale]
-        stale = [v for v in active_vaults if v.is_cached and v.stale]
-        never = [v for v in active_vaults if not v.is_cached]
+        synced = [v for v in active_vaults_list if v.is_cached and not v.stale]
+        stale = [v for v in active_vaults_list if v.is_cached and v.stale]
+        never = [v for v in active_vaults_list if not v.is_cached]
 
         if synced:
             names = ", ".join(v.name for v in synced[:3])
@@ -59,7 +68,7 @@ def display_status(status: ProjectStatus) -> None:
     for ide in initialized:
         if ide.is_stale:
             symbol = f"{Colors.YELLOW}⚠{Colors.ENDC}"
-            note = " (stale — run 'agent-bridge update')"
+            note = f" (stale — run '{Colors.CYAN}agent-bridge update{Colors.ENDC}')"
         else:
             symbol = f"{Colors.GREEN}✓{Colors.ENDC}"
             note = ""
@@ -70,13 +79,31 @@ def display_status(status: ProjectStatus) -> None:
         print(f"   {Colors.RED}✗ Not initialized:{Colors.ENDC} {names}")
 
     # MCP
+    print(f"{Colors.BOLD}🔌 MCP:{Colors.ENDC}", end=" ")
     if status.mcp_info and status.mcp_info.config_exists:
         servers = ", ".join(status.mcp_info.server_names)
-        print(
-            f"{Colors.BOLD}🔌 MCP:{Colors.ENDC} .agent/mcp_config.json "
-            f"({status.mcp_info.server_count} servers: {servers})"
-        )
+        print(f".agent/mcp_config.json ({status.mcp_info.server_count} servers: {servers})")
     else:
-        print(f"{Colors.BOLD}🔌 MCP:{Colors.ENDC} {Colors.YELLOW}⚠ No MCP configuration{Colors.ENDC}")
+        print(f"{Colors.YELLOW}⚠ No MCP configuration{Colors.ENDC}")
 
+    # Recommended actions
+    _show_recommended_actions(status)
     print()
+
+
+def _show_recommended_actions(status: ProjectStatus) -> None:
+    """Suggested next actions based on current project state."""
+    print(f"\n{Colors.BOLD}🧭 Recommended next steps:{Colors.ENDC}")
+    
+    if not status.agent_dir_exists:
+        print(f"  {Colors.CYAN}• Run 'agent-bridge init' to set up AI agents{Colors.ENDC}")
+    else:
+        stale_vaults = [v for v in status.vault_statuses if v.enabled and v.stale]
+        stale_ides = [i for i in status.ide_statuses if i.initialized and i.is_stale]
+        
+        if stale_vaults:
+            print(f"  {Colors.CYAN}• Run 'agent-bridge vault sync' to download latest vault changes{Colors.ENDC}")
+        elif stale_ides:
+            print(f"  {Colors.CYAN}• Run 'agent-bridge update' to refresh IDE configs{Colors.ENDC}")
+        else:
+            print(f"  {Colors.GREEN}• Everything is up to date! Try 'agent-bridge capture' after making IDE changes{Colors.ENDC}")
