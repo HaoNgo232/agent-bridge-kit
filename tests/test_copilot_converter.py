@@ -15,7 +15,7 @@ def test_convert_agent_creates_frontmatter(tmp_project):
     
     assert result.ok is True
     
-    agent_file = dest_root / ".github" / "agents" / "orchestrator.md"
+    agent_file = dest_root / ".github" / "agents" / "orchestrator.agent.md"
     assert agent_file.exists()
     
     content = agent_file.read_text()
@@ -33,7 +33,7 @@ def test_convert_agent_preserves_body(tmp_project):
     
     result = converter.convert(source_root, dest_root, verbose=False)
     
-    agent_file = dest_root / ".github" / "agents" / "orchestrator.md"
+    agent_file = dest_root / ".github" / "agents" / "orchestrator.agent.md"
     content = agent_file.read_text()
     
     # Body should be preserved
@@ -94,7 +94,7 @@ def test_copilot_truncation(tmp_project):
     
     result = converter.convert(source_root, dest_root, verbose=False)
     
-    output_file = dest_root / ".github" / "agents" / "large.md"
+    output_file = dest_root / ".github" / "agents" / "large.agent.md"
     assert output_file.exists()
     
     content = output_file.read_text()

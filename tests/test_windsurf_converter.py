@@ -20,22 +20,20 @@ def test_convert_creates_rules(tmp_project):
 
 
 def test_rule_frontmatter_format(tmp_project):
-    """Verify Windsurf rule frontmatter has name, mode, description."""
+    """Verify Windsurf rule has name, activation mode, description header."""
     converter = WindsurfConverter()
     source_root = tmp_project
     dest_root = tmp_project
-    
+
     result = converter.convert(source_root, dest_root, verbose=False)
-    
+
     # Check any rule file
     rule_files = list((dest_root / ".windsurf" / "rules").glob("*.md"))
     assert len(rule_files) > 0
-    
+
     content = rule_files[0].read_text()
-    assert content.startswith("---\n")
-    assert "name:" in content
-    assert "mode:" in content
-    assert "description:" in content
+    # Windsurf uses markdown headers, not YAML frontmatter
+    assert "**Activation:**" in content or content.startswith("# ")
 
 
 

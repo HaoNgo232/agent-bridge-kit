@@ -43,10 +43,9 @@ class KiroConverter(BaseConverter):
         return install_mcp_for_ide(source_root, dest_root, "kiro")
 
     def clean(self, project_path: Path) -> bool:
-        for sub in ["agents", "skills", "steering", "prompts"]:
-            p = project_path / ".kiro" / sub
-            if p.exists():
-                shutil.rmtree(p)
+        kiro_dir = project_path / ".kiro"
+        if kiro_dir.exists():
+            shutil.rmtree(kiro_dir)
         return True
 
     def reverse_convert(self, project_path: Path, agent_dir: Path, verbose: bool = True) -> List[CapturedFile]:

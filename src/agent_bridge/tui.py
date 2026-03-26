@@ -11,17 +11,17 @@ from questionary import Separator, Style
 
 from agent_bridge.utils import Colors
 
-# Cau hinh style cho Questionary - ANSI classes for accessibility
+# Cau hinh style cho Questionary - ANSI colors for accessibility
 CUSTOM_STYLE = Style(
     [
-        ("qmark", "class:ansicyan bold"),
+        ("qmark", "ansicyan bold"),
         ("question", "bold"),
-        ("answer", "class:ansicyan bold"),
-        ("pointer", "class:ansicyan bold"),
-        ("highlighted", "class:ansicyan bold bg:default"),
-        ("selected", "class:ansigreen bold"),  # Success color
-        ("checkbox", "class:ansiblack"),
-        ("checkbox-selected", "class:ansicyan bold"),
+        ("answer", "ansicyan bold"),
+        ("pointer", "ansicyan bold"),
+        ("highlighted", "ansicyan bold"),
+        ("selected", "ansigreen bold"),
+        ("checkbox", ""),
+        ("checkbox-selected", "ansicyan bold"),
     ]
 )
 
@@ -204,6 +204,72 @@ def run_capture_tui(
     else:
         print(f"{Colors.GREEN}Captured {result.get('captured', 0)} files.{Colors.ENDC}")
     return True
+
+
+def run_default_menu(registry) -> bool:
+    """Default interactive menu khi chay agent-bridge khong tham so."""
+    print(f"\n{Colors.CYAN}🤖 Agent Bridge — AI Configuration Manager{Colors.ENDC}\n")
+
+    action = questionary.select(
+        "What would you like to do?",
+        choices=[
+            questionary.Choice("🚀  Set up AI agents          (init)", value="init"),
+            questionary.Choice("🔄  Sync & update configs     (update)", value="update"),
+            questionary.Choice("📥  Capture IDE changes       (capture)", value="capture"),
+            questionary.Choice("📊  View project status       (status)", value="status"),
+            questionary.Choice("💾  Manage snapshots          (snapshot)", value="snapshot"),
+            questionary.Choice("🗂   Manage vaults             (vault)", value="vault"),
+            questionary.Choice("❌  Exit", value="exit"),
+        ],
+        style=CUSTOM_STYLE,
+    ).ask()
+
+    if not action or action == "exit":
+        return False
+
+    from pathlib import Path
+    project_path = Path.cwd()
+
+    if action == "init":
+        from agent_bridge.services.init_service import run_init
+        agent_dir = project_path / ".agent"
+        return run_init_tui(registry, project_path, agent_dir)
+
+    elif action == "update":
+        from agent_bridge.services.sync_service import run_update
+        run_update(project_path / ".agent")
+        return True
+
+    elif action == "capture":
+        from agent_bridge.services.capture_service import scan_for_captures
+        files = scan_for_captures(project_path)
+        if not files:
+            print(f"{Colors.YELLOW}No IDE configs found to capture.{Colors.ENDC}")
+            return True
+        return run_capture_tui(project_path, files, strategy="smart")
+
+    elif action == "status":
+        from agent_bridge.services.status_service import collect_status
+        from agent_bridge.services.status_display import display_status
+        display_status(collect_status(project_path))
+        return True
+
+    elif action == "snapshot":
+        print(f"\n{Colors.CYAN}Snapshot commands:{Colors.ENDC}")
+        print("  agent-bridge snapshot save <name>")
+        print("  agent-bridge snapshot list")
+        print("  agent-bridge snapshot restore <name>")
+        print("  agent-bridge snapshot delete <name>")
+        return True
+
+    elif action == "vault":
+        print(f"\n{Colors.CYAN}Vault commands:{Colors.ENDC}")
+        print("  agent-bridge vault list")
+        print("  agent-bridge vault add <name> <url>")
+        print("  agent-bridge vault sync")
+        return True
+
+    return False
 
 
 def _tui_add_vault(has_local_agent: bool) -> str | None:

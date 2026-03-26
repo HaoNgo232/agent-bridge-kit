@@ -50,10 +50,9 @@ class WindsurfConverter(BaseConverter):
         return ".windsurf/mcp_config.json"
 
     def clean(self, project_path: Path) -> bool:
-        for sub in ["rules", "workflows"]:
-            p = project_path / ".windsurf" / sub
-            if p.exists():
-                shutil.rmtree(p)
+        windsurf_dir = project_path / ".windsurf"
+        if windsurf_dir.exists():
+            shutil.rmtree(windsurf_dir)
         legacy = project_path / ".windsurfrules"
         if legacy.exists():
             legacy.unlink()

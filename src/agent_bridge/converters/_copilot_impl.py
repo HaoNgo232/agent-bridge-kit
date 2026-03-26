@@ -15,6 +15,13 @@ from agent_bridge.core.agent_registry import get_agent_role as _get_role
 from agent_bridge.core.frontmatter import FrontmatterParser
 from agent_bridge.core.types import CapturedFile, CaptureStatus
 
+# Map agent slug → subagents list (derived from registry for backward compat)
+def _build_subagents_map() -> Dict[str, List[str]]:
+    from agent_bridge.core.agent_registry import AGENT_ROLES
+    return {slug: list(role.subagents) for slug, role in AGENT_ROLES.items() if role.subagents}
+
+AGENT_SUBAGENTS_MAP: Dict[str, List[str]] = _build_subagents_map()
+
 
 def _role_to_copilot_tools(slug: str) -> list[str]:
     """Derive Copilot tool list from central AgentRole capabilities."""
@@ -292,7 +299,7 @@ def convert_to_copilot(source_root: Path, dest_root: Path, verbose: bool = True)
         if verbose:
             print("Converting agents to Copilot format...")
         for agent_file in agents_src.glob("*.md"):
-            dest_file = agents_dest / agent_file.name
+            dest_file = agents_dest / agent_file.name.replace(".md", ".agent.md")
             if convert_agent_to_copilot(agent_file, dest_file):
                 stats["agents"] += 1
                 if verbose:
@@ -374,8 +381,10 @@ def reverse_convert_copilot(
 
     agents_dir = github_root / "agents"
     if agents_dir.exists():
-        for f in agents_dir.glob("*.md"):
-            agent_path = agent_dir / "agents" / f.name
+        for f in agents_dir.glob("*.agent.md"):
+            # Strip .agent.md → .md for agent_path
+            agent_name = f.name.replace(".agent.md", ".md")
+            agent_path = agent_dir / "agents" / agent_name
             result.append(
                 CapturedFile(
                     ide_path=f,

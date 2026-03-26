@@ -7,6 +7,7 @@ tools:
   bash: false
 permission:
   edit: deny
+  bash: deny
 hidden: true
 ---
 

@@ -6,36 +6,38 @@ from unittest.mock import Mock, patch, MagicMock
 from agent_bridge.services.sync_service import run_update, _refresh_detected_ides
 
 
+@patch('agent_bridge.services.sync_service._refresh_detected_ides')
 @patch('agent_bridge.services.sync_service.VaultManager')
-def test_run_update_syncs_vaults(mock_vm_class, tmp_path):
+def test_run_update_syncs_vaults(mock_vm_class, mock_refresh, tmp_path):
     """Verify run_update() calls VaultManager.sync()."""
     mock_vm = Mock()
     mock_vm.sync.return_value = {"test-vault": {"status": "ok", "agents": 1}}
     mock_vm.enabled_vaults = []
     mock_vm_class.return_value = mock_vm
-    
+
     target_dir = tmp_path / ".agent"
     target_dir.mkdir()
-    
+
     run_update(target_dir, verbose=False)
-    
+
     assert mock_vm.sync.called
 
 
+@patch('agent_bridge.services.sync_service._refresh_detected_ides')
 @patch('agent_bridge.services.sync_service.VaultManager')
-def test_run_update_merges_to_project(mock_vm_class, tmp_path):
+def test_run_update_merges_to_project(mock_vm_class, mock_refresh, tmp_path):
     """Verify run_update() calls merge_to_project()."""
     mock_vm = Mock()
     mock_vm.sync.return_value = {"test-vault": {"status": "ok"}}
     mock_vm.enabled_vaults = []
     mock_vm.merge_to_project = Mock()
     mock_vm_class.return_value = mock_vm
-    
+
     target_dir = tmp_path / ".agent"
     target_dir.mkdir()
-    
+
     run_update(target_dir, verbose=False)
-    
+
     assert mock_vm.merge_to_project.called
 
 
@@ -81,13 +83,14 @@ def test_refresh_detected_ides_finds_cursor(mock_registry, tmp_path):
     # Create .cursor directory
     (tmp_path / ".cursor").mkdir()
     (tmp_path / ".agent").mkdir()
-    
+
     mock_converter = Mock()
     mock_converter.format_info.output_dir = ".cursor"
-    mock_registry.get_all.return_value = [mock_converter]
-    
+    mock_converter.display_name = "Cursor"
+    mock_registry.all.return_value = [mock_converter]
+
     _refresh_detected_ides(tmp_path, verbose=False)
-    
+
     # Should call converter.convert()
     assert mock_converter.convert.called
 

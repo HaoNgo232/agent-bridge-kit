@@ -6,7 +6,8 @@ tools:
   edit: true
   bash: true
 permission:
-  edit: ask
+  edit: allow
+  bash: allow
 ---
 
 # Game Developer Agent

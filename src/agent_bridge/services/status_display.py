@@ -8,72 +8,75 @@ from agent_bridge.utils import Colors
 
 
 def display_status(status: ProjectStatus) -> None:
-    """Print formatted status dashboard."""
-    
+    """Print formatted status dashboard with grouped display."""
+
     # Project header
     print(f"\n{Colors.BOLD}📍 Project:{Colors.ENDC} {status.project_path}")
-    
-    # Source content
+
+    # Source with summary line
     if status.agent_dir_exists:
         counts = status.agent_counts
-        print(f"{Colors.BOLD}📦 Source:{Colors.ENDC}  .agent/ "
-              f"({counts.get('agents', 0)} agents, "
-              f"{counts.get('skills', 0)} skills, "
-              f"{counts.get('workflows', 0)} workflows, "
-              f"{counts.get('rules', 0)} rules)")
+        total = sum(counts.values())
+        print(
+            f"{Colors.BOLD}📦 Source:{Colors.ENDC}  .agent/ ({total} items — "
+            f"agents: {counts.get('agents', 0)}, "
+            f"skills: {counts.get('skills', 0)}, "
+            f"workflows: {counts.get('workflows', 0)}, "
+            f"rules: {counts.get('rules', 0)})"
+        )
     else:
         print(f"{Colors.BOLD}📦 Source:{Colors.ENDC}  {Colors.RED}✗ .agent/ not found{Colors.ENDC}")
-    
-    # Vaults
-    print(f"{Colors.BOLD}🔗 Vaults:{Colors.ENDC}")
-    if not status.vault_statuses:
-        print(f"   {Colors.YELLOW}⚠ No vaults registered{Colors.ENDC}")
+
+    # Vaults — grouped by status
+    active_vaults = [v for v in status.vault_statuses if v.enabled]
+    print(f"{Colors.BOLD}🔗 Vaults ({len(active_vaults)} active):{Colors.ENDC}")
+
+    if not active_vaults:
+        print(f"   {Colors.YELLOW}⚠ No vaults registered — run 'agent-bridge vault add'{Colors.ENDC}")
     else:
-        # Calculate max width dynamically
-        import shutil
-        terminal_width = shutil.get_terminal_size((80, 20)).columns
-        max_name_width = min(
-            max([len(v.name) for v in status.vault_statuses], default=20),
-            terminal_width - 40  # Reserve space for status info
-        )
-        
-        for vault in status.vault_statuses:
-            if not vault.enabled:
-                continue
-            
-            if vault.is_cached:
-                if vault.stale:
-                    symbol = f"{Colors.YELLOW}⚠{Colors.ENDC}"
-                    note = f" — consider running 'agent-bridge vault sync'"
-                else:
-                    symbol = f"{Colors.GREEN}✓{Colors.ENDC}"
-                    note = ""
-                print(f"   {symbol} {vault.name:<{max_name_width}} (synced {vault.freshness}){note}")
-            else:
-                symbol = f"{Colors.RED}✗{Colors.ENDC}"
-                print(f"   {symbol} {vault.name:<{max_name_width}} (never synced)")
-    
-    # IDEs
-    print(f"{Colors.BOLD}🖥  IDEs:{Colors.ENDC}")
-    for ide in status.ide_statuses:
-        if ide.initialized:
-            if ide.is_stale:
-                symbol = f"{Colors.YELLOW}⚠{Colors.ENDC}"
-                note = " (stale — run 'agent-bridge update')"
-            else:
-                symbol = f"{Colors.GREEN}✓{Colors.ENDC}"
-                note = ""
-            print(f"   {symbol} {ide.name:<10} — {ide.output_dir:<15} ({ide.file_count} files, synced){note}")
+        synced = [v for v in active_vaults if v.is_cached and not v.stale]
+        stale = [v for v in active_vaults if v.is_cached and v.stale]
+        never = [v for v in active_vaults if not v.is_cached]
+
+        if synced:
+            names = ", ".join(v.name for v in synced[:3])
+            suffix = f" +{len(synced) - 3} more" if len(synced) > 3 else ""
+            print(f"   {Colors.GREEN}✓ Synced ({len(synced)}):{Colors.ENDC} {names}{suffix}")
+        if stale:
+            names = ", ".join(v.name for v in stale[:3])
+            suffix = f" +{len(stale) - 3} more" if len(stale) > 3 else ""
+            print(f"   {Colors.YELLOW}⚠ Stale ({len(stale)}):{Colors.ENDC} {names}{suffix} — run 'agent-bridge vault sync'")
+        if never:
+            names = ", ".join(v.name for v in never[:3])
+            suffix = f" +{len(never) - 3} more" if len(never) > 3 else ""
+            print(f"   {Colors.RED}✗ Not synced ({len(never)}):{Colors.ENDC} {names}{suffix}")
+
+    # IDEs — grouped by status
+    initialized = [i for i in status.ide_statuses if i.initialized]
+    not_init = [i for i in status.ide_statuses if not i.initialized]
+    print(f"{Colors.BOLD}🖥  IDEs ({len(initialized)} initialized):{Colors.ENDC}")
+
+    for ide in initialized:
+        if ide.is_stale:
+            symbol = f"{Colors.YELLOW}⚠{Colors.ENDC}"
+            note = " (stale — run 'agent-bridge update')"
         else:
-            symbol = f"{Colors.RED}✗{Colors.ENDC}"
-            print(f"   {symbol} {ide.name:<10} — not initialized")
-    
+            symbol = f"{Colors.GREEN}✓{Colors.ENDC}"
+            note = ""
+        print(f"   {symbol} {ide.name:<10} {ide.output_dir:<15} ({ide.file_count} files){note}")
+
+    if not_init:
+        names = ", ".join(i.name for i in not_init)
+        print(f"   {Colors.RED}✗ Not initialized:{Colors.ENDC} {names}")
+
     # MCP
     if status.mcp_info and status.mcp_info.config_exists:
         servers = ", ".join(status.mcp_info.server_names)
-        print(f"{Colors.BOLD}🔌 MCP:{Colors.ENDC} .agent/mcp_config.json found "
-              f"({status.mcp_info.server_count} servers: {servers})")
+        print(
+            f"{Colors.BOLD}🔌 MCP:{Colors.ENDC} .agent/mcp_config.json "
+            f"({status.mcp_info.server_count} servers: {servers})"
+        )
     else:
         print(f"{Colors.BOLD}🔌 MCP:{Colors.ENDC} {Colors.YELLOW}⚠ No MCP configuration{Colors.ENDC}")
-    
-    print()  # Trailing newline
+
+    print()

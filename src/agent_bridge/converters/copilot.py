@@ -55,10 +55,9 @@ class CopilotConverter(BaseConverter):
         return install_mcp_for_ide(source_root, dest_root, "copilot")
 
     def clean(self, project_path: Path) -> bool:
-        for sub in ["agents", "skills", "prompts", "instructions"]:
-            p = project_path / ".github" / sub
-            if p.exists():
-                shutil.rmtree(p)
+        github_dir = project_path / ".github"
+        if github_dir.exists():
+            shutil.rmtree(github_dir)
         return True
 
     def reverse_convert(self, project_path: Path, agent_dir: Path, verbose: bool = True) -> List[CapturedFile]:

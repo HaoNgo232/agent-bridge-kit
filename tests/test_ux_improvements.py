@@ -99,30 +99,33 @@ def test_dynamic_terminal_width():
     """Test status display adapts to terminal width."""
     from agent_bridge.services.status_display import display_status
     from agent_bridge.services.status_service import ProjectStatus, VaultStatus
-    
+
     # Mock terminal width
     with patch("shutil.get_terminal_size", return_value=(60, 20)):
         status = ProjectStatus(
             project_path="/test",
             agent_dir_exists=True,
+            agent_counts={},
             vault_statuses=[
                 VaultStatus(
                     name="very-long-vault-name-that-should-be-truncated",
                     enabled=True,
                     is_cached=True,
+                    last_synced=None,
+                    source_type="git",
                     stale=False,
-                    freshness="1 hour ago"
+                    freshness="1 hour ago",
                 )
             ],
             ide_statuses=[],
-            mcp_status=None
+            mcp_info=None,
         )
-        
+
         # Should not raise error
         captured = StringIO()
         with patch("sys.stdout", captured):
             display_status(status)
-        
+
         output = captured.getvalue()
         assert "very-long-vault-name" in output
 

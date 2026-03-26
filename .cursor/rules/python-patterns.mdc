@@ -1,6 +1,6 @@
 ---
-description: Python code style and patterns
-globs: **/*.py,**/pyproject.toml,**/requirements.txt
+description: Python best practices and patterns
+globs: ['**/*.py']
 alwaysApply: false
 ---
 

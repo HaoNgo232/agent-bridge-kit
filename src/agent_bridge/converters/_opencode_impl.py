@@ -280,22 +280,18 @@ def convert_skill_to_opencode(source_dir: Path, dest_dir: Path) -> bool:
 def generate_opencode_config(source_root: Path, dest_root: Path) -> bool:
     """Generate opencode.json configuration file."""
     try:
+        # instructions: glob patterns OpenCode uses to load context files
         config = {
             "$schema": "https://opencode.ai/config.json",
-            # Instructions - glob patterns for rule files
             "instructions": [
+                ".opencode/agents/*.md",
                 ".opencode/skills/*/SKILL.md",
-                "AGENTS.md",
-                "CONTRIBUTING.md",
             ],
-            # Default agent
             "default_agent": "build",
-            # Compaction settings
             "compaction": {
                 "auto": True,
                 "prune": True,
             },
-            # Permission defaults
             "permission": {
                 "edit": "allow",
                 "bash": "ask",

@@ -7,10 +7,7 @@ tools:
   bash: true
 permission:
   edit: allow
-  bash:
-    '*': ask
-    npm test*: allow
-    npx jest*: allow
+  bash: allow
 ---
 
 # Test Engineer

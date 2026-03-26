@@ -46,6 +46,7 @@ def _main():
     # --- clean ---
     p_clean = sub.add_parser("clean", help="Remove generated IDE configs")
     p_clean.add_argument("--all", action="store_true")
+    p_clean.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
     for name in converter_registry.names():
         p_clean.add_argument(f"--{name}", action="store_true")
 
@@ -63,7 +64,7 @@ def _main():
     p_capture.add_argument("--copilot", action="store_true", help="Only capture from Copilot")
     p_capture.add_argument("--all", action="store_true", help="Capture from all detected IDEs")
     p_capture.add_argument("--dry-run", action="store_true", help="Show what would be captured, don't write")
-    p_capture.add_argument("--strategy", choices=["ide_wins", "agent_wins", "ask"], default="ask", help="Conflict resolution strategy")
+    p_capture.add_argument("--strategy", choices=["ide_wins", "agent_wins", "ask", "smart"], default="smart", help="Conflict resolution strategy")
 
     # --- snapshot ---
     p_snapshot = sub.add_parser("snapshot", help="Save/manage .agent/ snapshots")
@@ -130,7 +131,13 @@ def _main():
     elif args.format in converter_registry.names():
         _handle_direct_convert(args, converter_registry)
     else:
-        parser.print_help()
+        try:
+            from agent_bridge.tui import run_default_menu
+            success = run_default_menu(converter_registry)
+            if not success:
+                parser.print_help()
+        except (ImportError, KeyboardInterrupt):
+            parser.print_help()
 
 
 def _get_selected_formats(args, registry) -> list:
@@ -281,22 +288,33 @@ def _handle_snapshot(args):
             print(f"  Contents: {info.contents}")
     elif action == "delete":
         import questionary
-        
+
         name = getattr(args, "name", None)
         if not name:
             print(f"{Colors.RED}Usage: agent-bridge snapshot delete <name>{Colors.ENDC}")
             return
-        
-        # Confirmation prompt
+
+        info = get_snapshot(name)
+        if not info:
+            print(f"{Colors.RED}Snapshot '{name}' not found.{Colors.ENDC}")
+            return
+
+        print(f"\n{Colors.YELLOW}⚠  Snapshot to be DELETED:{Colors.ENDC}")
+        print(f"  Name:    {info.name}")
+        print(f"  Version: v{info.version}")
+        print(f"  Created: {info.created}")
+        if info.description:
+            print(f"  Desc:    {info.description}")
+
         confirm = questionary.confirm(
-            f"Delete snapshot '{name}'? This cannot be undone.",
-            default=False
+            "\nDelete this snapshot? This cannot be undone.",
+            default=False,
         ).ask()
-        
+
         if not confirm:
             print(f"{Colors.YELLOW}Deletion cancelled.{Colors.ENDC}")
             return
-        
+
         if delete_snapshot(name):
             print(f"{Colors.GREEN}Snapshot '{name}' deleted.{Colors.ENDC}")
         else:
@@ -328,14 +346,43 @@ def _handle_clean(args, registry):
     project = Path.cwd()
     formats = _get_selected_formats(args, registry)
 
-    # Confirmation prompt for destructive action
-    if not args.force:
-        format_list = ", ".join(formats)
+    if not getattr(args, "force", False):
+        # Collect dirs/files to be deleted for preview
+        dirs_to_delete = []
+        files_to_delete = []
+        for name in formats:
+            conv = registry.get(name)
+            if conv:
+                output_dir = project / conv.format_info.output_dir
+                if output_dir.exists():
+                    dirs_to_delete.append(output_dir)
+                    files_to_delete.extend(f for f in output_dir.rglob("*") if f.is_file())
+
+        extra_files = []
+        if "opencode" in formats and (project / "AGENTS.md").exists():
+            extra_files.append(project / "AGENTS.md")
+
+        if not dirs_to_delete and not extra_files:
+            print(f"{Colors.YELLOW}Nothing to clean.{Colors.ENDC}")
+            return
+
+        print(f"\n{Colors.YELLOW}⚠  Files to be DELETED:{Colors.ENDC}\n")
+        for f in files_to_delete[:8]:
+            print(f"  🗑  {f.relative_to(project)}")
+        if len(files_to_delete) > 8:
+            print(f"  ... and {len(files_to_delete) - 8} more files")
+        for d in dirs_to_delete:
+            if not any(d in f.parents for f in files_to_delete):
+                print(f"  🗑  {d.relative_to(project)}/ (empty dir)")
+        for f in extra_files:
+            print(f"  🗑  {f.relative_to(project)}")
+
+        total = len(files_to_delete) + len(extra_files) + sum(1 for d in dirs_to_delete if not list(d.rglob("*")))
         confirm = questionary.confirm(
-            f"This will delete generated configs for: {format_list}. Continue?",
-            default=False
+            f"\nDelete from {len(formats)} IDE(s)?",
+            default=False,
         ).ask()
-        
+
         if not confirm:
             print(f"{Colors.YELLOW}Cleanup cancelled.{Colors.ENDC}")
             return
@@ -345,7 +392,6 @@ def _handle_clean(args, registry):
         if conv:
             conv.clean(project)
 
-    # Clean AGENTS.md (OpenCode)
     if "opencode" in formats and (project / "AGENTS.md").exists():
         (project / "AGENTS.md").unlink()
 

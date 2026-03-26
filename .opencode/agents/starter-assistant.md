@@ -1,5 +1,5 @@
 ---
-description: Specialized agent for starter assistant
+description: Agent for starter assistant tasks
 mode: subagent
 tools:
   write: false

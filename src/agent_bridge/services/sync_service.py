@@ -7,6 +7,7 @@ Xu ly: 1) Sync tat ca vault
 """
 
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from agent_bridge.core.converter import converter_registry
@@ -25,9 +26,24 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
         verbose: In tien trinh
     """
     vm = VaultManager()
+    target_path = Path(target_dir).resolve()
 
     if verbose:
         print(f"\n{Colors.HEADER}Updating knowledge vaults to: {target_dir}{Colors.ENDC}\n")
+
+    # Auto-snapshot safety net truoc khi update
+    if target_path.exists():
+        try:
+            from agent_bridge.services import snapshot_service as _ss
+            _ss.save_snapshot(
+                "auto-pre-update",
+                target_path,
+                f"Auto-saved before update at {datetime.now().strftime('%H:%M')}",
+            )
+            if verbose:
+                print_info("🛡  Safety snapshot created: 'auto-pre-update'")
+        except Exception:
+            pass  # Fail silently — don't block main workflow
 
     # Buoc 1: Sync vault
     if verbose:
@@ -43,9 +59,7 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
         return
 
     # Buoc 2: Merge vao project
-    target_path = Path(target_dir).resolve()
     if not target_path.exists() and not (Path.cwd() / ".git").exists():
-        # Khong co project, cap nhat master cache
         master_path = get_master_agent_dir()
         target_path = master_path if master_path.exists() else Path.cwd() / ".agent"
 

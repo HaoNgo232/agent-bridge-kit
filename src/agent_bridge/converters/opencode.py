@@ -48,10 +48,9 @@ class OpenCodeConverter(BaseConverter):
         return ".opencode/mcp.json"
 
     def clean(self, project_path: Path) -> bool:
-        for sub in ["agents", "commands", "skills"]:
-            p = project_path / ".opencode" / sub
-            if p.exists():
-                shutil.rmtree(p)
+        opencode_dir = project_path / ".opencode"
+        if opencode_dir.exists():
+            shutil.rmtree(opencode_dir)
         config_file = project_path / ".opencode" / "opencode.json"
         if config_file.exists():
             config_file.unlink()

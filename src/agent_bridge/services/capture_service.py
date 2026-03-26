@@ -127,7 +127,7 @@ def _get_apply_reverse(ide_name: str):
 def execute_capture(
     project_path: Path,
     files: List[CapturedFile],
-    strategy: str = "ask",
+    strategy: str = "smart",
     dry_run: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -151,8 +151,18 @@ def execute_capture(
         return {"dry_run": True, "would_capture": len(files), **counts}
 
     for cf in files:
+        # Strategy: smart → auto-decide based on file status
+        if strategy == "smart":
+            if cf.status == CaptureStatus.UNCHANGED:
+                counts["skipped"] += 1
+                continue
+            # MODIFIED or NEW → ide_wins (user edited in IDE)
+            strategy_for_file = "ide_wins"
+        else:
+            strategy_for_file = strategy
+
         # Strategy: agent_wins → skip if agent file exists and unchanged
-        if strategy == "agent_wins":
+        if strategy_for_file == "agent_wins":
             if cf.status == CaptureStatus.UNCHANGED:
                 counts["skipped"] += 1
                 continue

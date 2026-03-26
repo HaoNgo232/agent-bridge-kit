@@ -44,10 +44,9 @@ class CursorConverter(BaseConverter):
         return install_mcp_for_ide(source_root, dest_root, "cursor")
 
     def clean(self, project_path: Path) -> bool:
-        for sub in ["agents", "rules", "skills"]:
-            p = project_path / ".cursor" / sub
-            if p.exists():
-                shutil.rmtree(p)
+        cursor_dir = project_path / ".cursor"
+        if cursor_dir.exists():
+            shutil.rmtree(cursor_dir)
         return True
 
     def reverse_convert(self, project_path: Path, agent_dir: Path, verbose: bool = True) -> List[CapturedFile]:

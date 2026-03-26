@@ -7,9 +7,7 @@ tools:
   bash: true
 permission:
   edit: allow
-  bash:
-    '*': ask
-    npx prisma*: allow
+  bash: allow
 ---
 
 # Database Architect

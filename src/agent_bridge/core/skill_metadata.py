@@ -83,11 +83,12 @@ def get_cursor_config(skill_name: str) -> Optional[Dict[str, any]]:
     metadata = get_skill_metadata(skill_name)
     if not metadata or not metadata.cursor_mode:
         return None
-    
+
     return {
         "mode": metadata.cursor_mode,
-        "globs": metadata.cursor_globs,
+        "globs": metadata.cursor_globs or "",
         "description": metadata.description,
+        "alwaysApply": metadata.cursor_mode == "always-on",
     }
 
 

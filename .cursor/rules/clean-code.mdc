@@ -1,7 +1,7 @@
 ---
-description: Core coding standards
-globs: 
-alwaysApply: true
+description: Clean code principles and best practices
+globs: []
+alwaysApply: false
 ---
 
 # Clean Code - Pragmatic AI Coding Standards

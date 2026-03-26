@@ -136,7 +136,7 @@ Run tests with Playwright.
     assert stats["agents"] == 1
     assert stats["skills"] == 1
 
-    agent_output = output_root / ".github" / "agents" / "orchestrator.md"
+    agent_output = output_root / ".github" / "agents" / "orchestrator.agent.md"
     skill_output = output_root / ".github" / "skills" / "Web App Testing" / "SKILL.md"
     assert agent_output.exists()
     assert skill_output.exists()

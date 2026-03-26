@@ -17,7 +17,7 @@ def test_git_source_validates_url():
     with pytest.raises(ValueError, match="Unsafe git URL"):
         GitSource("javascript:alert(1)")
     
-    with pytest.raises(ValueError, match="cannot start with '-'"):
+    with pytest.raises(ValueError, match="Unsafe git URL"):
         GitSource("-u origin")
 
 

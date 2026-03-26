@@ -55,10 +55,11 @@ def test_convert_workflow_to_command(tmp_project):
     converter = OpenCodeConverter()
     source_root = tmp_project
     dest_root = tmp_project
-    
+
     result = converter.convert(source_root, dest_root, verbose=False)
-    
-    command_file = dest_root / ".opencode" / "commands" / "brainstorm.md"
+
+    # tmp_project has plan.md workflow
+    command_file = dest_root / ".opencode" / "commands" / "plan.md"
     assert command_file.exists()
 
 
@@ -74,8 +75,9 @@ def test_opencode_json_created(tmp_project):
     assert config_file.exists()
     
     config = json.loads(config_file.read_text())
-    assert "agents" in config
-    assert "commands" in config
+    assert "$schema" in config
+    assert "instructions" in config
+    assert "default_agent" in config
 
 
 def test_convert_to_opencode_full(tmp_project):

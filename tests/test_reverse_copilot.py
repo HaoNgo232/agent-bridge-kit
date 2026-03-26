@@ -10,7 +10,7 @@ from agent_bridge.core.types import CapturedFile, CaptureStatus
 def test_reverse_copilot_agent_strips_tools(tmp_project_with_ide_outputs):
     """Verify tools, agents, handoffs fields removed from output."""
     project = tmp_project_with_ide_outputs
-    agent_file = project / ".github" / "agents" / "orchestrator.md"
+    agent_file = project / ".github" / "agents" / "orchestrator.agent.md"
     if not agent_file.exists():
         pytest.skip("No Copilot agents")
 

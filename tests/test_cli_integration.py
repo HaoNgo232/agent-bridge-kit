@@ -88,13 +88,13 @@ def test_cli_clean_cursor(tmp_project, monkeypatch):
     """Test `agent-bridge clean --cursor` removes .cursor/ directory."""
     # Create .cursor directory
     (tmp_project / ".cursor").mkdir()
-    
+
     monkeypatch.chdir(tmp_project)
-    monkeypatch.setattr(sys, "argv", ["agent-bridge", "clean", "--cursor"])
-    
+    monkeypatch.setattr(sys, "argv", ["agent-bridge", "clean", "--cursor", "--force"])
+
     from agent_bridge.cli import _main
     _main()
-    
+
     assert not (tmp_project / ".cursor").exists()
 
 
@@ -103,13 +103,13 @@ def test_cli_clean_all(tmp_project, monkeypatch):
     # Create all IDE directories
     for ide_dir in [".cursor", ".github", ".kiro", ".opencode", ".windsurf"]:
         (tmp_project / ide_dir).mkdir()
-    
+
     monkeypatch.chdir(tmp_project)
-    monkeypatch.setattr(sys, "argv", ["agent-bridge", "clean", "--all"])
-    
+    monkeypatch.setattr(sys, "argv", ["agent-bridge", "clean", "--all", "--force"])
+
     from agent_bridge.cli import _main
     _main()
-    
+
     # All should be removed
     assert not (tmp_project / ".cursor").exists()
     assert not (tmp_project / ".github").exists()
@@ -148,11 +148,12 @@ def test_cli_status_json(tmp_project, monkeypatch, capsys):
         pytest.fail("Output is not valid JSON")
 
 
-@patch('agent_bridge.services.sync_service.VaultManager')
+@patch('agent_bridge.vault.VaultManager')
 def test_cli_vault_list(mock_vm_class, tmp_project, monkeypatch, capsys):
     """Test `agent-bridge vault list` displays vaults."""
     mock_vm = Mock()
     mock_vm.list_vaults.return_value = []
+    mock_vm.vaults = []
     mock_vm_class.return_value = mock_vm
     
     monkeypatch.chdir(tmp_project)
