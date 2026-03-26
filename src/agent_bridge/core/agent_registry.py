@@ -27,6 +27,13 @@ _r(
         category="primary",
         subagents=["*"],
         handoff_targets=["frontend-specialist", "backend-specialist", "database-architect", "test-engineer"],
+        handoff_prompts={
+            "frontend-specialist": {"label": "Frontend Tasks", "prompt": "Implement the frontend components as specified."},
+            "backend-specialist": {"label": "Backend Tasks", "prompt": "Implement the backend services as specified."},
+            "database-architect": {"label": "Database Setup", "prompt": "Design and implement the database schema."},
+            "test-engineer": {"label": "Write Tests", "prompt": "Write tests for the implemented features."},
+        },
+        opencode_permission={"task": {"*": "allow"}},  # Can invoke any subagent
     ),
     AgentRole(
         slug="frontend-specialist", name="Frontend Specialist",
@@ -39,6 +46,7 @@ _r(
         ],
         allowed_paths=["src/**", "components/**", "pages/**", "app/**", "public/**", "styles/**"],
         category="primary",
+        opencode_permission={"edit": "allow", "bash": "allow"},
     ),
     AgentRole(
         slug="backend-specialist", name="Backend Specialist",
@@ -51,6 +59,7 @@ _r(
         ],
         allowed_paths=["src/**", "api/**", "server/**", "lib/**", "services/**"],
         category="primary",
+        opencode_permission={"edit": "allow", "bash": "allow"},
     ),
 
     # === Subagents ===
@@ -63,6 +72,10 @@ _r(
         category="subagent",
         subagents=["*"],
         handoff_targets=["orchestrator", "security-auditor"],
+        handoff_prompts={
+            "orchestrator": {"label": "Start Implementation", "prompt": "Implement the plan outlined above following the task breakdown."},
+            "security-auditor": {"label": "Security Review", "prompt": "Review the security aspects of this implementation plan."},
+        },
     ),
     AgentRole(
         slug="explorer-agent", name="Explorer Agent",
@@ -71,6 +84,9 @@ _r(
         allowed_commands=["git log *", "git status", "find *", "grep *", "tree *", "cat *", "head *", "tail *"],
         category="subagent",
         handoff_targets=["project-planner"],
+        handoff_prompts={
+            "project-planner": {"label": "Create Plan", "prompt": "Create an implementation plan based on this codebase analysis."},
+        },
     ),
     AgentRole(
         slug="security-auditor", name="Security Auditor",
@@ -79,6 +95,9 @@ _r(
         allowed_commands=["npm audit", "yarn audit", "git log *", "git diff *", "grep *", "find *"],
         category="subagent",
         handoff_targets=["backend-specialist"],
+        handoff_prompts={
+            "backend-specialist": {"label": "Fix Security Issues", "prompt": "Fix the security vulnerabilities identified in the audit."},
+        },
     ),
     AgentRole(
         slug="penetration-tester", name="Penetration Tester",
@@ -99,6 +118,9 @@ _r(
         allowed_paths=["tests/**", "test/**", "__tests__/**", "*.test.*", "*.spec.*"],
         category="subagent",
         handoff_targets=["backend-specialist"],
+        handoff_prompts={
+            "backend-specialist": {"label": "Fix Failing Tests", "prompt": "Fix the code to make the failing tests pass."},
+        },
     ),
     AgentRole(
         slug="debugger", name="Debugger",
@@ -112,6 +134,9 @@ _r(
         category="subagent",
         subagents=["backend-specialist", "frontend-specialist", "test-engineer"],
         handoff_targets=["backend-specialist"],
+        handoff_prompts={
+            "backend-specialist": {"label": "Implement Fix", "prompt": "Implement the fix for the identified bug."},
+        },
     ),
     AgentRole(
         slug="database-architect", name="Database Architect",

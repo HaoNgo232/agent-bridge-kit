@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-bridge"
 version = "1.0.0"
-description = "Universal bridge to convert Antigravity agents to Kiro CLI and GitHub Copilot."
+description = "Universal converter for AI agent knowledge with bidirectional sync. Transforms .agent/ format to multiple IDE formats (Cursor, Copilot, Kiro, OpenCode, Windsurf) and captures changes back."
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
@@ -13,8 +13,6 @@ authors = [
 ]
 dependencies = [
     "PyYAML",
-    "click>=8.1.0",
-    "rich>=13.0.0",
     "questionary>=2.0.0",
 ]
 keywords = ["ai", "agents", "kiro", "copilot", "converter"]

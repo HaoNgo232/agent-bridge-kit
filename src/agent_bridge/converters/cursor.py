@@ -1,5 +1,5 @@
 """
-Cursor AI converter — chuyen doi .agent/ sang dang .cursor/agents, rules, skills.
+Cursor AI converter — converts .agent/ to .cursor/agents, rules, skills format.
 """
 
 import shutil

@@ -145,7 +145,7 @@ def _normalize_snapshot_name(name: str) -> str:
 
 def list_snapshots() -> List[SnapshotInfo]:
     """
-    Liet ke tat ca snapshot, sap xep theo ngay tao (moi nhat truoc).
+    List all snapshot, sorted by creation date (newest first).
 
     Returns:
         List SnapshotInfo, newest first

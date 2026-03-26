@@ -136,7 +136,7 @@ def generate_kiro_agent_json(
     agent_slug: str, metadata: Dict[str, Any], mcp_server_names: List[str] = None
 ) -> Dict[str, Any]:
     """
-    Tao JSON cau hinh agent theo Kiro CLI official spec.
+    Create JSON cau hinh agent theo Kiro CLI official spec.
 
     Ref: https://kiro.dev/docs/cli/custom-agents/configuration-reference
 
@@ -457,74 +457,6 @@ def copy_mcp_config(source_file: Path, dest_file: Path) -> bool:
         return False
 
 
-def fetch_external_skill_resources(project_root: Path, verbose: bool = True) -> bool:
-    """
-    Install ui-ux-pro-max skill resources using uipro CLI.
-
-    See: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
-
-    If uipro CLI is not installed, prompts before auto-installing globally.
-    Then runs: uipro init --ai kiro
-
-    Args:
-        project_root: Project root directory
-        verbose: Print progress messages
-
-    Returns:
-        True on success, False on error
-    """
-    try:
-        # Check if uipro CLI is installed
-        check_result = subprocess.run(["uipro", "--version"], capture_output=True, text=True, cwd=str(project_root))
-
-        # If not found, auto-install
-        if check_result.returncode != 0:
-            if verbose:
-                print("  📦 uipro CLI not found, installing globally...")
-
-            # Install globally via npm
-            install_result = subprocess.run(["npm", "install", "-g", "uipro-cli"], capture_output=True, text=True)
-
-            if install_result.returncode != 0:
-                if verbose:
-                    print(f"  ⚠️  Failed to install uipro-cli: {install_result.stderr}")
-                    print("  💡 Try manually: npm install -g uipro-cli")
-                return False
-
-            if verbose:
-                print("  ✓ uipro-cli installed successfully")
-
-        if verbose:
-            print("  📥 Installing ui-ux-pro-max via uipro CLI...")
-
-        # Run uipro init for Kiro
-        result = subprocess.run(
-            ["uipro", "init", "--ai", "kiro"], capture_output=True, text=True, cwd=str(project_root)
-        )
-
-        if result.returncode != 0:
-            if verbose:
-                print(f"  ⚠️  uipro init failed: {result.stderr}")
-            return False
-
-        if verbose:
-            print("  ✓ ui-ux-pro-max installed via uipro CLI")
-
-        return True
-
-    except FileNotFoundError as e:
-        if verbose:
-            if "npm" in str(e):
-                print("  ⚠️  npm not found. Please install Node.js first.")
-            else:
-                print(f"  ⚠️  Command not found: {e}")
-        return False
-    except Exception as e:
-        if verbose:
-            print(f"  ⚠️  Error installing ui-ux-pro-max: {e}")
-        return False
-
-
 def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) -> Dict[str, Any]:
     """
     Main conversion function for Kiro CLI format.
@@ -650,29 +582,16 @@ def convert_to_kiro(source_root: Path, dest_root: Path, verbose: bool = True) ->
             stats["errors"].append("mcp:copy_failed")
 
     # Run external skill plugins (declarative, config-driven via .agent/plugins.json)
-    try:
-        from agent_bridge.core.plugins import PluginRunner
+    from agent_bridge.core.plugins import PluginRunner
 
-        runner = PluginRunner(source_root)
-        plugin_results = runner.run_for_ide("kiro", dest_root, verbose=verbose)
-        for pname, pstatus in plugin_results.items():
-            if pstatus == "ok":
-                if verbose:
-                    print(f"  ✓ Plugin '{pname}' installed")
-            elif pstatus.startswith("error"):
-                stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
-    except ImportError:
-        # Fallback: legacy hardcoded ui-ux-pro-max
-        ui_ux_workflow = workflows_src / "ui-ux-pro-max.md" if workflows_src.exists() else None
-        if ui_ux_workflow and ui_ux_workflow.exists():
+    runner = PluginRunner(source_root)
+    plugin_results = runner.run_for_ide("kiro", dest_root, verbose=verbose)
+    for pname, pstatus in plugin_results.items():
+        if pstatus == "ok":
             if verbose:
-                print("Installing ui-ux-pro-max skill...")
-            if fetch_external_skill_resources(source_root, verbose):
-                pass
-            else:
-                stats["warnings"].append(
-                    "ui-ux-pro-max install failed (install uipro CLI: npm install -g uipro-cli)"
-                )
+                print(f"  ✓ Plugin '{pname}' installed")
+        elif pstatus.startswith("error"):
+            stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
 
     # Warnings for components not converted
     if scripts_src.exists():

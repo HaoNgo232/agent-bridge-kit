@@ -5,26 +5,26 @@
 ## Core Documentation
 
 - [README](README.md): Installation, quick start, and command reference
-- [AGENTS.md](AGENTS.md): Project planning, architecture, and development guidelines for AI agents
+- [AGENTS.md](AGENTS.md): Architecture, design decisions, and contribution guide for AI agents
 
 ## Architecture
 
-- **CLI**: `src/agent_bridge/cli.py` — Command-line interface
+- **CLI**: `src/agent_bridge/cli.py` — argparse-based command-line interface
 - **Converters**: `src/agent_bridge/converters/` — IDE format converters (cursor, copilot, kiro, opencode, windsurf)
-- **Core**: `src/agent_bridge/core/` — Types, agent registry, converter base
+- **Core**: `src/agent_bridge/core/` — Types, agent registry, converter base, frontmatter parser, plugin system
 - **Vault**: `src/agent_bridge/vault/` — Knowledge vault manager, sources, merger
-- **Services**: `src/agent_bridge/services/` — Init, sync, capture, and snapshot services
-- **Built-in Vault**: `src/agent_bridge/builtin_vault/` — Starter knowledge vault
+- **Services**: `src/agent_bridge/services/` — Init, sync, capture, snapshot, and status services
+- **Utils**: `src/agent_bridge/utils/` — Colors, display, filesystem, MCP helpers
 
 ## Supported IDEs
 
-| IDE | Output Directory | Status |
+| IDE | Output Directory | Capture Support |
 | --- | --- | --- |
-| Cursor AI | `.cursor/` | Stable |
-| Kiro CLI | `.kiro/` | Stable |
-| GitHub Copilot | `.github/` | Beta |
-| OpenCode | `.opencode/` | Beta |
-| Windsurf | `.windsurf/` | Beta |
+| Cursor AI | `.cursor/` | Yes |
+| Kiro CLI | `.kiro/` | Yes |
+| GitHub Copilot | `.github/` | Yes |
+| OpenCode | `.opencode/` | No |
+| Windsurf | `.windsurf/` | No |
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ agent-bridge init --all
 agent-bridge update
 
 # Capture changes from IDE back to .agent/
-agent-bridge capture --ide cursor --strategy ide_wins
+agent-bridge capture --cursor --strategy ide_wins
 
 # Save snapshot before major changes
 agent-bridge snapshot save "stable-v1"
@@ -51,44 +51,36 @@ agent-bridge snapshot restore "stable-v1"
 
 # Install MCP configuration
 agent-bridge mcp --all
+
+# Check project status
+agent-bridge status
 ```
 
-## Key Features
+## Key Design Patterns
 
-- **Bidirectional Sync**: Forward (.agent/ → IDE) and reverse (IDE → .agent/) conversion
-- **Snapshot Management**: Save, restore, and manage .agent/ snapshots
-- **Multi-format Support**: 5 IDEs with different formats
-- **Interactive TUI**: Questionary-based setup wizard
-- **Vault Management**: Add, remove, sync knowledge vaults
-- **MCP Integration**: Model Context Protocol configuration
-- **Strategy Options**: `ide_wins` or `agent_wins` conflict resolution
-- **Automated Testing**: 123/123 tests passing ✅
+- **Self-Registering Converters**: Each converter registers itself on import. Adding a new IDE requires zero changes to services or CLI.
+- **Central Agent Registry**: `core/agent_registry.py` is the single source of truth for all agent roles and capabilities.
+- **Strategy Pattern for Vaults**: `GitSource`, `LocalSource`, `BuiltinSource` each know how to sync themselves.
+- **Bridge Meta Tracking**: `.agent/.bridge-meta.json` maps generated IDE files back to source, enabling accurate capture status detection.
 
 ## Bidirectional Workflow
 
 ```bash
-# 1. Initialize IDE configs
+# 1. Initialize IDE configs from .agent/
 agent-bridge init --cursor
 
-# 2. Edit in IDE
+# 2. Edit in Cursor IDE
 # ... make changes to .cursor/agents/orchestrator.md ...
 
-# 3. Capture changes back
-agent-bridge capture --ide cursor
+# 3. Capture changes back to .agent/
+agent-bridge capture --cursor
 
 # 4. Save snapshot
 agent-bridge snapshot save "before-refactor"
 
-# 5. Experiment
-# ... edit .agent/ files ...
-
-# 6. Restore if needed
-agent-bridge snapshot restore "before-refactor"
+# 5. Push to another IDE
+agent-bridge init --kiro
 ```
-
-## For AI Agents
-
-Read `AGENTS.md` for project understanding, task breakdown, BMAD workflow, and agent assignments. Use `agent-bridge init` for project setup; `agent-bridge update` to pull latest knowledge from vaults; `agent-bridge capture` to preserve IDE edits; `agent-bridge snapshot` for version control.
 
 ## Testing
 
@@ -98,20 +90,25 @@ pytest tests/
 
 # Run specific suites
 pytest tests/test_capture_service.py
-pytest tests/test_snapshot_service.py
 pytest tests/test_roundtrip.py
+pytest tests/test_plugins.py
 
-# Current status: 123/123 tests passing ✅
+# Current status: 137/137 tests passing
 ```
+
+## For AI Agents
+
+Read `AGENTS.md` for architecture details, design decisions, converter interface specification, and contribution workflow. The codebase follows Open/Closed Principle — extend via new converter files, not by modifying existing services.
 
 ## Optional
 
-- [Makefile](Makefile): `make setup`, `make check` for local development
-- [tests/](tests/): Comprehensive test suite including roundtrip tests
+- [Makefile](Makefile): `make setup`, `make check`, `make format` for local development
+- [docs/refactor-baseline.md](docs/refactor-baseline.md): Refactor changelog with before/after metrics
+- [tests/](tests/): 137 tests covering converters, roundtrip, capture, snapshot, plugins, status
 
 ---
 
-**Version**: 1.0.0  
-**License**: MIT  
-**Maintainer**: HaoNgo232  
+**Version**: 1.0.0
+**License**: MIT
+**Maintainer**: HaoNgo232
 **Keywords**: AI agent, IDE conversion, bidirectional sync, agent configuration, knowledge vault, Cursor, Copilot, Kiro, OpenCode, Windsurf, MCP, .agent format, snapshot management, reverse conversion

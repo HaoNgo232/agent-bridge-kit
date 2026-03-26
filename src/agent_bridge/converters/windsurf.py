@@ -1,5 +1,5 @@
 """
-Windsurf converter — chuyen doi .agent/ sang dang .windsurf/rules, workflows.
+Windsurf converter — converts .agent/ sang dang .windsurf/rules, workflows.
 """
 
 import shutil

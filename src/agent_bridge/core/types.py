@@ -33,6 +33,9 @@ class AgentRole:
     hidden: bool = False
     subagents: List[str] = field(default_factory=list)
     handoff_targets: List[str] = field(default_factory=list)
+    handoff_prompts: Dict[str, Dict[str, str]] = field(default_factory=dict)  # {target_agent: {label, prompt}}
+    # OpenCode-specific fields
+    opencode_permission: Dict[str, Any] = field(default_factory=dict)  # {"edit": "allow", "bash": {...}}
 
 
 @dataclass

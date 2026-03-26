@@ -26,124 +26,61 @@ import yaml
 # OPENCODE AGENT CONFIGURATION
 # =============================================================================
 
-# Agent modes
-AGENT_MODES = {
-    "primary": "primary",  # Main agents, switchable with Tab
-    "subagent": "subagent",  # Invoked by primary agents or @mention
-}
-
-# Agent role -> configuration mapping
-AGENT_CONFIG_MAP = {
-    # Primary agents (main development agents)
-    "orchestrator": {
-        "mode": "primary",
-        "description": "Orchestrates tasks and delegates to specialized agents",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"task": {"*": "allow"}},  # Can invoke any subagent
-    },
-    "frontend-specialist": {
-        "mode": "primary",
-        "description": "Frontend development with React, Vue, and web technologies",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "allow", "bash": "allow"},
-    },
-    "backend-specialist": {
-        "mode": "primary",
-        "description": "Backend development with APIs, databases, and server logic",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "allow", "bash": "allow"},
-    },
-    # Subagents (specialized tasks)
-    "project-planner": {
-        "mode": "subagent",
-        "description": "Creates implementation plans and task breakdowns",
-        "tools": {"write": False, "edit": False, "bash": False},
-        "permission": {"edit": "deny", "bash": "deny"},
-    },
-    "explorer-agent": {
-        "mode": "subagent",
-        "description": "Explores and analyzes codebase structure",
-        "tools": {"write": False, "edit": False, "bash": False},
-        "permission": {"edit": "deny"},
-    },
-    "security-auditor": {
-        "mode": "subagent",
-        "description": "Audits code for security vulnerabilities",
-        "tools": {"write": False, "edit": False, "bash": False},
-        "permission": {"edit": "deny", "bash": "deny"},
-    },
-    "test-engineer": {
-        "mode": "subagent",
-        "description": "Writes and maintains tests",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "allow", "bash": {"*": "ask", "npm test*": "allow", "npx jest*": "allow"}},
-    },
-    "debugger": {
-        "mode": "subagent",
-        "description": "Debugs issues and analyzes errors",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "ask", "bash": "ask"},
-    },
-    "documentation-writer": {
-        "mode": "subagent",
-        "description": "Writes and maintains documentation",
-        "tools": {"write": True, "edit": True, "bash": False},
-        "permission": {"edit": "allow", "bash": "deny"},
-    },
-    "database-architect": {
-        "mode": "subagent",
-        "description": "Designs database schemas and migrations",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "allow", "bash": {"*": "ask", "npx prisma*": "allow"}},
-    },
-    "devops-engineer": {
-        "mode": "subagent",
-        "description": "Manages deployment and infrastructure",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "allow", "bash": "ask"},
-    },
-    "performance-optimizer": {
-        "mode": "subagent",
-        "description": "Optimizes code and application performance",
-        "tools": {"write": True, "edit": True, "bash": True},
-        "permission": {"edit": "ask", "bash": "ask"},
-    },
-    "code-archaeologist": {
-        "mode": "subagent",
-        "description": "Analyzes legacy code and dependencies",
-        "tools": {"write": False, "edit": False, "bash": False},
-        "permission": {"edit": "deny"},
-        "hidden": True,  # Internal agent
-    },
-}
-
-# Default config for unknown agents — enriched from central registry
-from agent_bridge.core.agent_registry import get_agent_role as _get_oc_role
-
-_DEFAULT_AGENT_CONFIG = {
-    "mode": "subagent",
-    "description": "",
-    "tools": {"write": False, "edit": False, "bash": False},
-    "permission": {"edit": "ask"},
-}
+from agent_bridge.core.agent_registry import get_agent_role
 
 
-def _get_opencode_config(slug: str) -> dict:
-    """Get OpenCode config, falling back to central registry for description."""
-    if slug in AGENT_CONFIG_MAP:
-        return AGENT_CONFIG_MAP[slug].copy()
-    role = _get_oc_role(slug)
-    config = _DEFAULT_AGENT_CONFIG.copy()
-    if role:
-        config["description"] = role.description
-        config["mode"] = "primary" if role.category == "primary" else "subagent"
-        config["tools"] = {
-            "write": role.can_write,
-            "edit": role.can_write,
-            "bash": role.can_execute,
+def _role_to_opencode_config(slug: str) -> Dict[str, Any]:
+    """
+    Derive OpenCode config from central AgentRole.
+    Similar to _role_to_kiro_config() in _kiro_impl.py.
+    """
+    role = get_agent_role(slug)
+    if not role:
+        return {
+            "mode": "subagent",
+            "description": f"Agent for {slug.replace('-', ' ')} tasks",
+            "tools": {"write": False, "edit": False, "bash": False},
+            "permission": {"edit": "ask"},
         }
-        config["hidden"] = role.hidden
+    
+    # Derive mode from category
+    mode = "primary" if role.category == "primary" else "subagent"
+    
+    # Derive tools from capabilities
+    tools = {
+        "write": role.can_write,
+        "edit": role.can_write,
+        "bash": role.can_execute,
+    }
+    
+    # Derive permission from capabilities and opencode_permission field
+    if role.opencode_permission:
+        permission = role.opencode_permission
+    else:
+        # Default permission based on capabilities
+        permission = {}
+        if role.can_write:
+            permission["edit"] = "allow"
+        else:
+            permission["edit"] = "deny"
+        
+        if role.can_execute:
+            permission["bash"] = "allow"
+        elif not role.can_execute:
+            permission["bash"] = "deny"
+    
+    config = {
+        "mode": mode,
+        "description": role.description,
+        "tools": tools,
+        "permission": permission,
+    }
+    
+    if role.hidden:
+        config["hidden"] = True
+    
     return config
+
 
 # Command templates from workflows
 WORKFLOW_TO_COMMAND_MAP = {
@@ -253,8 +190,8 @@ def convert_agent_to_opencode(source_path: Path, dest_path: Path) -> bool:
         content = source_path.read_text(encoding="utf-8")
         agent_slug = source_path.stem.lower()
 
-        # Get config (OpenCode-specific map → central registry fallback)
-        config = _get_opencode_config(agent_slug)
+        # Get config from central registry
+        config = _role_to_opencode_config(agent_slug)
 
         # Extract description from content if not in config
         if not config.get("description"):
@@ -445,19 +382,16 @@ def convert_to_opencode(source_root: Path, dest_root: Path, verbose: bool = True
             print("  ✓ opencode.json")
 
     # Run external skill plugins (declarative, config-driven via .agent/plugins.json)
-    try:
-        from agent_bridge.core.plugins import PluginRunner
+    from agent_bridge.core.plugins import PluginRunner
 
-        runner = PluginRunner(source_root)
-        plugin_results = runner.run_for_ide("opencode", dest_root, verbose=verbose)
-        for pname, pstatus in plugin_results.items():
-            if pstatus == "ok":
-                if verbose:
-                    print(f"  ✓ Plugin '{pname}' installed")
-            elif pstatus.startswith("error"):
-                stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
-    except ImportError:
-        pass
+    runner = PluginRunner(source_root)
+    plugin_results = runner.run_for_ide("opencode", dest_root, verbose=verbose)
+    for pname, pstatus in plugin_results.items():
+        if pstatus == "ok":
+            if verbose:
+                print(f"  ✓ Plugin '{pname}' installed")
+        elif pstatus.startswith("error"):
+            stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
 
     if verbose:
         print(
@@ -470,37 +404,73 @@ def convert_to_opencode(source_root: Path, dest_root: Path, verbose: bool = True
 
 
 def copy_mcp_opencode(root_path: Path, force: bool = False) -> bool:
-    """Tich hop MCP config vao opencode.json."""
+    """
+    Integrate MCP config into opencode.json.
+    
+    OpenCode embeds MCP config directly in opencode.json instead of separate file.
+    This is OpenCode-specific behavior, different from other IDEs.
+    """
     from agent_bridge.utils import get_master_agent_dir, load_mcp_config
 
     source_root = root_path if (root_path / ".agent").exists() else get_master_agent_dir().parent
     mcp_config = load_mcp_config(source_root)
 
-    if mcp_config:
-        opencode_json_path = root_path / ".opencode" / "opencode.json"
-        if opencode_json_path.exists():
-            try:
-                config = json.loads(opencode_json_path.read_text(encoding="utf-8"))
-                config["mcp"] = {}
-                source_servers = mcp_config.get("mcpServers", {})
-                for name, server_config in source_servers.items():
-                    new_config = {}
-                    if "command" in server_config:
-                        cmd = server_config["command"]
-                        args = server_config.get("args", [])
-                        if isinstance(cmd, str):
-                            new_config["command"] = [cmd] + (args if isinstance(args, list) else [])
-                        elif isinstance(cmd, list):
-                            new_config["command"] = cmd
-                        else:
-                            new_config["command"] = [str(cmd)]
-                    if "env" in server_config:
-                        new_config["env"] = server_config["env"]
-                    new_config["type"] = server_config.get("type", "local")
-                    new_config["enabled"] = server_config.get("enabled", True)
-                    config["mcp"][name] = new_config
-                opencode_json_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
-                return True
-            except Exception:
-                pass
-    return False
+    if not mcp_config:
+        return False
+    
+    opencode_json_path = root_path / ".opencode" / "opencode.json"
+    if not opencode_json_path.exists():
+        return False
+    
+    try:
+        config = json.loads(opencode_json_path.read_text(encoding="utf-8"))
+        
+        # Transform MCP config to OpenCode format
+        config["mcp"] = _transform_mcp_for_opencode(mcp_config)
+        
+        opencode_json_path.write_text(
+            json.dumps(config, indent=2, ensure_ascii=False), 
+            encoding="utf-8"
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _transform_mcp_for_opencode(mcp_config: dict) -> dict:
+    """
+    Transform standard MCP config to OpenCode format.
+    
+    OpenCode expects:
+    - command as array (not string)
+    - type field (local/remote)
+    - enabled field
+    """
+    opencode_mcp = {}
+    source_servers = mcp_config.get("mcpServers", {})
+    
+    for name, server_config in source_servers.items():
+        new_config = {}
+        
+        # Transform command to array format
+        if "command" in server_config:
+            cmd = server_config["command"]
+            args = server_config.get("args", [])
+            if isinstance(cmd, str):
+                new_config["command"] = [cmd] + (args if isinstance(args, list) else [])
+            elif isinstance(cmd, list):
+                new_config["command"] = cmd
+            else:
+                new_config["command"] = [str(cmd)]
+        
+        # Copy env if present
+        if "env" in server_config:
+            new_config["env"] = server_config["env"]
+        
+        # Add OpenCode-specific fields
+        new_config["type"] = server_config.get("type", "local")
+        new_config["enabled"] = server_config.get("enabled", True)
+        
+        opencode_mcp[name] = new_config
+    
+    return opencode_mcp

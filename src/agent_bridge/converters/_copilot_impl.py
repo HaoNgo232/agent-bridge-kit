@@ -1,7 +1,7 @@
 """
 Implementation logic cho GitHub Copilot converter.
 
-Tach rieng de converters/copilot.py chi chua BaseConverter wrapper.
+Separated so that converters/copilot.py chi chua BaseConverter wrapper.
 """
 
 import re
@@ -37,29 +37,6 @@ def _role_to_copilot_tools(slug: str) -> list[str]:
             tools.append("web/githubRepo")
     return tools if tools else ["search/codebase", "edit/editFiles", "web/fetch"]
 
-
-AGENT_SUBAGENTS_MAP = {
-    "orchestrator": ["*"],
-    "project-planner": ["*"],
-    "debugger": ["backend-specialist", "frontend-specialist", "test-engineer"],
-}
-
-AGENT_HANDOFFS_MAP = {
-    "project-planner": [
-        {"label": "Start Implementation", "agent": "orchestrator", "prompt": "Implement the plan outlined above following the task breakdown.", "send": False},
-        {"label": "Security Review", "agent": "security-auditor", "prompt": "Review the security aspects of this implementation plan.", "send": False},
-    ],
-    "orchestrator": [
-        {"label": "Frontend Tasks", "agent": "frontend-specialist", "prompt": "Implement the frontend components as specified.", "send": False},
-        {"label": "Backend Tasks", "agent": "backend-specialist", "prompt": "Implement the backend services as specified.", "send": False},
-        {"label": "Database Setup", "agent": "database-architect", "prompt": "Design and implement the database schema.", "send": False},
-        {"label": "Write Tests", "agent": "test-engineer", "prompt": "Write tests for the implemented features.", "send": False},
-    ],
-    "explorer-agent": [{"label": "Create Plan", "agent": "project-planner", "prompt": "Create an implementation plan based on this codebase analysis.", "send": False}],
-    "security-auditor": [{"label": "Fix Security Issues", "agent": "backend-specialist", "prompt": "Fix the security vulnerabilities identified in the audit.", "send": False}],
-    "test-engineer": [{"label": "Fix Failing Tests", "agent": "backend-specialist", "prompt": "Fix the code to make the failing tests pass.", "send": False}],
-    "debugger": [{"label": "Implement Fix", "agent": "backend-specialist", "prompt": "Implement the fix for the identified bug.", "send": False}],
-}
 
 _RE_H1_NAME = re.compile(r"^#\s+(.+?)(?:\s*[-–—]\s*(.+))?$", re.MULTILINE)
 _RE_ROLE_PATTERNS = [
@@ -117,23 +94,28 @@ def generate_copilot_frontmatter(agent_slug: str, metadata: Dict[str, Any]) -> s
     tools = _role_to_copilot_tools(agent_slug)
     from agent_bridge.core.agent_registry import get_agent_role
     role = get_agent_role(agent_slug)
-    subagents = role.subagents if role else AGENT_SUBAGENTS_MAP.get(agent_slug)
+    
+    # Subagents from registry
+    subagents = role.subagents if role else []
     if subagents:
         if "agent" not in tools:
             tools = [*tools, "agent"]
         frontmatter["agents"] = subagents
     frontmatter["tools"] = tools
-    handoff_targets = role.handoff_targets if role else None
-    if handoff_targets:
-        raw_handoffs = AGENT_HANDOFFS_MAP.get(agent_slug, [])
-        # Use registry targets, fall back to hardcoded map for prompt text
-        handoffs = raw_handoffs if raw_handoffs else [
-            {"label": f"Talk to {t}", "agent": t, "prompt": "", "send": False}
-            for t in handoff_targets
-        ]
+    
+    # Handoffs from registry (with prompts)
+    if role and role.handoff_targets:
+        handoffs = []
+        for target in role.handoff_targets:
+            prompt_data = role.handoff_prompts.get(target, {})
+            handoffs.append({
+                "label": prompt_data.get("label", f"Talk to {target}"),
+                "agent": target,
+                "prompt": prompt_data.get("prompt", ""),
+                "send": False
+            })
         frontmatter["handoffs"] = handoffs
-    elif AGENT_HANDOFFS_MAP.get(agent_slug):
-        frontmatter["handoffs"] = AGENT_HANDOFFS_MAP[agent_slug]
+    
     if agent_slug in ["code-archaeologist"]:
         frontmatter["user-invokable"] = False
     return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False, width=1000)
@@ -355,19 +337,16 @@ def convert_to_copilot(source_root: Path, dest_root: Path, verbose: bool = True)
                 stats["errors"].append(f"rule:{rule_file.name}")
 
     # Run external skill plugins (declarative, config-driven via .agent/plugins.json)
-    try:
-        from agent_bridge.core.plugins import PluginRunner
+    from agent_bridge.core.plugins import PluginRunner
 
-        runner = PluginRunner(source_root)
-        plugin_results = runner.run_for_ide("copilot", dest_root, verbose=verbose)
-        for pname, pstatus in plugin_results.items():
-            if pstatus == "ok":
-                if verbose:
-                    print(f"  ✓ Plugin '{pname}' installed")
-            elif pstatus.startswith("error"):
-                stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
-    except ImportError:
-        pass
+    runner = PluginRunner(source_root)
+    plugin_results = runner.run_for_ide("copilot", dest_root, verbose=verbose)
+    for pname, pstatus in plugin_results.items():
+        if pstatus == "ok":
+            if verbose:
+                print(f"  ✓ Plugin '{pname}' installed")
+        elif pstatus.startswith("error"):
+            stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
 
     if verbose:
         print(f"\nCopilot conversion complete:")

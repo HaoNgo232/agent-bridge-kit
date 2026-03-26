@@ -1,5 +1,5 @@
 """
-Kiro CLI converter — chuyen doi .agent/ sang dang .kiro/agents, skills, prompts, steering.
+Kiro CLI converter — converts .agent/ sang dang .kiro/agents, skills, prompts, steering.
 """
 
 import shutil

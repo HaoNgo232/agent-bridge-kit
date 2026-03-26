@@ -187,10 +187,20 @@ def convert_skill_to_cursor(source_dir: Path, rules_dest: Path, skills_dest: Pat
                 content_clean += f"\n\n---\n\n{additional_clean}"
 
         # OPTION A: Convert to MDC Rule (Auto-attach)
-        if skill_name in MDC_RULES_CONFIG:
+        # Try centralized registry first, fallback to hardcoded map
+        config = None
+        try:
+            from agent_bridge.core.skill_metadata import get_cursor_config
+            config = get_cursor_config(skill_name)
+        except ImportError:
+            pass
+        
+        if not config and skill_name in MDC_RULES_CONFIG:
             config = MDC_RULES_CONFIG[skill_name]
+        
+        if config:
             frontmatter = generate_mdc_frontmatter(
-                description=config["description"], globs=config["globs"], always_apply=config["alwaysApply"]
+                description=config["description"], globs=config["globs"], always_apply=config.get("alwaysApply", False)
             )
             rules_dest.mkdir(parents=True, exist_ok=True)
             dest_file = rules_dest / f"{skill_name}.mdc"
@@ -349,19 +359,16 @@ def convert_to_cursor(source_root: Path, dest_root: Path, verbose: bool = True) 
             print("  ✓ project-instructions.mdc created")
 
     # 5. Run external skill plugins (declarative, config-driven via .agent/plugins.json)
-    try:
-        from agent_bridge.core.plugins import PluginRunner
+    from agent_bridge.core.plugins import PluginRunner
 
-        runner = PluginRunner(source_root)
-        plugin_results = runner.run_for_ide("cursor", dest_root, verbose=verbose)
-        for pname, pstatus in plugin_results.items():
-            if pstatus == "ok":
-                if verbose:
-                    print(f"  ✓ Plugin '{pname}' installed")
-            elif pstatus.startswith("error"):
-                stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
-    except ImportError:
-        pass
+    runner = PluginRunner(source_root)
+    plugin_results = runner.run_for_ide("cursor", dest_root, verbose=verbose)
+    for pname, pstatus in plugin_results.items():
+        if pstatus == "ok":
+            if verbose:
+                print(f"  ✓ Plugin '{pname}' installed")
+        elif pstatus.startswith("error"):
+            stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
 
     if verbose:
         print("\nCursor v2.4 conversion complete!")

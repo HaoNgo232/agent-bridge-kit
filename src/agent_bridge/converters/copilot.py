@@ -1,5 +1,5 @@
 """
-GitHub Copilot converter — chuyen doi .agent/ sang dang .github/agents va .github/skills.
+GitHub Copilot converter — converts .agent/ to .github/agents and .github/skills format.
 
 Output: .github/agents/*.md, .github/skills/<skill>/SKILL.md,
 .github/prompts/*.prompt.md, .github/instructions/*.instructions.md

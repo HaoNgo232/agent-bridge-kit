@@ -41,7 +41,6 @@
     "src/agent_bridge/services/sync_service.py",
     "src/agent_bridge/tui.py",
     "src/agent_bridge/utils",
-    "src/agent_bridge/utils.py",
     "src/agent_bridge/utils/__init__.py",
     "src/agent_bridge/utils/colors.py",
     "src/agent_bridge/utils/display.py",

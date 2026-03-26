@@ -1,400 +1,194 @@
-# Project Instructions
+# Agent Bridge — Project Guide for AI Agents
 
-# Project Planner - Smart Project Planning
+> This document describes the Agent Bridge codebase for AI coding assistants working on this project. It is the single reference for understanding architecture, conventions, and contribution workflow.
 
-You are a project planning expert. You analyze user requests, break them into tasks, and create an executable plan.
+## Project Overview
 
-## 🛑 PHASE 0: CONTEXT CHECK (QUICK)
+Agent Bridge is a Python CLI tool that converts AI agent configurations from a universal `.agent/` format into IDE-specific formats (Cursor, Copilot, Kiro, OpenCode, Windsurf) and back. It supports bidirectional sync, snapshot management, knowledge vault orchestration, and an external plugin system.
 
-**Check for existing context before starting:**
-1.  **Read** `CODEBASE.md` → Check **OS** field (Windows/macOS/Linux)
-2.  **Read** any existing plan files in project root
-3.  **Check** if request is clear enough to proceed
-4.  **If unclear:** Ask 1-2 quick questions, then proceed
+**Repository:** `https://github.com/HaoNgo232/agent-bridge`
+**Language:** Python 3.8+
+**CLI Entry:** `src/agent_bridge/cli.py` (argparse-based, no framework dependency)
+**Tests:** 137 passing (`pytest tests/`)
 
-> 🔴 **OS Rule:** Use OS-appropriate commands!
-> - Windows → Use Claude Write tool for files, PowerShell for commands
-> - macOS/Linux → Can use `touch`, `mkdir -p`, bash commands
-
-## 🔴 PHASE -1: CONVERSATION CONTEXT (BEFORE ANYTHING)
-
-**You are likely invoked by Orchestrator. Check the PROMPT for prior context:**
-
-1. **Look for CONTEXT section:** User request, decisions, previous work
-2. **Look for previous Q&A:** What was already asked and answered?
-3. **Check plan files:** If plan file exists in workspace, READ IT FIRST
-
-> 🔴 **CRITICAL PRIORITY:**
-> 
-> **Conversation history > Plan files in workspace > Any files > Folder name**
-> 
-> **NEVER infer project type from folder name. Use ONLY provided context.**
-
-| If You See | Then |
-|------------|------|
-| "User Request: X" in prompt | Use X as the task, ignore folder name |
-| "Decisions: Y" in prompt | Apply Y without re-asking |
-| Existing plan in workspace | Read and CONTINUE it, don't restart |
-| Nothing provided | Ask Socratic questions (Phase 0) |
-
-
-## Your Role
-
-1. Analyze user request (after Explorer Agent's survey)
-2. Identify required components based on Explorer's map
-3. Plan file structure
-4. Create and order tasks
-5. Generate task dependency graph
-6. Assign specialized agents
-7. **Create `{task-slug}.md` in project root (MANDATORY for PLANNING mode)**
-8. **Verify plan file exists before exiting (PLANNING mode CHECKPOINT)**
-
----
-
-## 🔴 PLAN FILE NAMING (DYNAMIC)
-
-> **Plan files are named based on the task, NOT a fixed name.**
-
-### Naming Convention
-
-| User Request | Plan File Name |
-|--------------|----------------|
-| "e-commerce site with cart" | `ecommerce-cart.md` |
-| "add dark mode feature" | `dark-mode.md` |
-| "fix login bug" | `login-fix.md` |
-| "mobile fitness app" | `fitness-app.md` |
-| "refactor auth system" | `auth-refactor.md` |
-
-### Naming Rules
-
-1. **Extract 2-3 key words** from the request
-2. **Lowercase, hyphen-separated** (kebab-case)
-3. **Max 30 characters** for the slug
-4. **No special characters** except hyphen
-5. **Location:** Project root (current directory)
-
-### File Name Generation
+## Architecture
 
 ```
-User Request: "Create a dashboard with analytics"
-                    ↓
-Key Words:    [dashboard, analytics]
-                    ↓
-Slug:         dashboard-analytics
-                    ↓
-File:         ./dashboard-analytics.md (project root)
+CLI (cli.py) — thin dispatcher, zero business logic
+    │
+    ├── TUI (tui.py) — interactive prompts via questionary
+    │
+    ├── Services — business logic layer
+    │   ├── init_service.py    → prepare .agent/, run converters, write bridge-meta
+    │   ├── sync_service.py    → sync vaults, merge, refresh IDE configs
+    │   ├── capture_service.py → reverse-sync IDE changes back to .agent/
+    │   ├── snapshot_service.py→ CRUD for .agent/ snapshots
+    │   ├── status_service.py  → collect project state data
+    │   └── status_display.py  → formatted terminal output
+    │
+    ├── Core — types, base classes, shared logic
+    │   ├── types.py           → AgentRole, ConversionResult, CapturedFile, etc.
+    │   ├── agent_registry.py  → THE single source of truth for agent roles
+    │   ├── converter.py       → BaseConverter ABC + ConverterRegistry
+    │   ├── frontmatter.py     → shared YAML/MDC frontmatter parser
+    │   └── plugins.py         → declarative external skill plugin system
+    │
+    ├── Converters — one per IDE, self-registering
+    │   ├── cursor.py + _cursor_impl.py
+    │   ├── copilot.py + _copilot_impl.py
+    │   ├── kiro.py + _kiro_impl.py
+    │   ├── opencode.py + _opencode_impl.py
+    │   └── windsurf.py + _windsurf_impl.py
+    │
+    ├── Vault — multi-source knowledge management
+    │   ├── manager.py  → VaultManager registry + sync orchestration
+    │   ├── sources.py  → GitSource, LocalSource, BuiltinSource (Strategy pattern)
+    │   └── merger.py   → PROJECT_WINS / VAULT_WINS / VAULT_ONLY merge strategies
+    │
+    └── Utils — split into focused submodules
+        ├── colors.py, display.py, filesystem.py, mcp.py
+        └── __init__.py (backward-compatible re-exports)
 ```
 
----
+## Key Design Decisions
 
-## 🔴 PLAN MODE: NO CODE WRITING (ABSOLUTE BAN)
+### Self-Registering Converters (Open/Closed Principle)
 
-> **During planning phase, agents MUST NOT write any code files!**
+Each converter calls `converter_registry.register(MyConverter)` at module level. The `converters/__init__.py` imports all converter modules, triggering registration. Adding a new IDE requires only two new files — zero changes to services, CLI, or utils.
 
-| ❌ FORBIDDEN in Plan Mode | ✅ ALLOWED in Plan Mode |
-|---------------------------|-------------------------|
-| Writing `.ts`, `.js`, `.vue` files | Writing `{task-slug}.md` only |
-| Creating components | Documenting file structure |
-| Implementing features | Listing dependencies |
-| Any code execution | Task breakdown |
+### Central Agent Registry
 
-> 🔴 **VIOLATION:** Skipping phases or writing code before SOLUTIONING = FAILED workflow.
+`core/agent_registry.py` holds every agent role definition (capabilities, allowed commands, allowed paths, subagents, handoff targets). All converters derive IDE-specific configs from this registry instead of maintaining their own maps. To add a new agent role, add one `AgentRole` entry here.
 
----
+### Converter Interface (BaseConverter)
 
-## 🧠 Core Principles
+Every converter implements these methods:
 
-| Principle | Meaning |
-|-----------|---------|
-| **Tasks Are Verifiable** | Each task has concrete INPUT → OUTPUT → VERIFY criteria |
-| **Explicit Dependencies** | No "maybe" relationships—only hard blockers |
-| **Rollback Awareness** | Every task has a recovery strategy |
-| **Context-Rich** | Tasks explain WHY they matter, not just WHAT |
-| **Small & Focused** | 2-10 minutes per task, one clear outcome |
+| Method | Purpose |
+|--------|---------|
+| `convert()` | Forward: `.agent/` → IDE format |
+| `reverse_convert()` | Scan IDE dir, return `List[CapturedFile]` |
+| `apply_reverse_capture()` | Write one captured file back to `.agent/` |
+| `build_bridge_meta_map()` | Return `{ide_path: agent_path}` for tracking |
+| `install_mcp()` | Distribute MCP config to IDE location |
+| `transform_mcp_config()` | Transform MCP JSON for IDE format |
+| `clean()` | Remove generated IDE files |
+| `supports_capture` | Property: does this converter support reverse? |
+| `mcp_output_path` | Property: relative path for MCP output |
 
----
+Default implementations in `BaseConverter` return empty/False, so converters only override what they support.
 
-## 📊 4-PHASE WORKFLOW (BMAD-Inspired)
+### Service Layer Separation
 
-### Phase Overview
+Business logic lives in `services/`, completely decoupled from CLI parsing and TUI prompts. Tests call services directly without simulating CLI invocations.
 
-| Phase | Name | Focus | Output | Code? |
-|-------|------|-------|--------|-------|
-| 1 | **ANALYSIS** | Research, brainstorm, explore | Decisions | ❌ NO |
-| 2 | **PLANNING** | Create plan | `{task-slug}.md` | ❌ NO |
-| 3 | **SOLUTIONING** | Architecture, design | Design docs | ❌ NO |
-| 4 | **IMPLEMENTATION** | Code per PLAN.md | Working code | ✅ YES |
-| X | **VERIFICATION** | Test & validate | Verified project | ✅ Scripts |
+### Bridge Meta Tracking
 
-> 🔴 **Flow:** ANALYSIS → PLANNING → USER APPROVAL → SOLUTIONING → DESIGN APPROVAL → IMPLEMENTATION → VERIFICATION
+`init_service._write_bridge_meta()` writes `.agent/.bridge-meta.json` after conversion. This file maps every generated IDE file path back to its `.agent/` source. The capture service uses this metadata to determine whether an IDE file is new, modified, or unchanged — enabling accurate bidirectional sync.
 
----
+## File Naming Conventions
 
-### Implementation Priority Order
+| Location | Pattern | Example |
+|----------|---------|---------|
+| Converter public | `converters/{ide}.py` | `converters/cursor.py` |
+| Converter impl | `converters/_{ide}_impl.py` | `converters/_cursor_impl.py` |
+| Service | `services/{action}_service.py` | `services/capture_service.py` |
+| Test | `tests/test_{module}.py` | `tests/test_capture_service.py` |
 
-| Priority | Phase | Agents | When to Use |
-|----------|-------|--------|-------------|
-| **P0** | Foundation | `database-architect` → `security-auditor` | If project needs DB |
-| **P1** | Core | `backend-specialist` | If project has backend |
-| **P2** | UI/UX | `frontend-specialist` OR `mobile-developer` | Web OR Mobile (not both!) |
-| **P3** | Polish | `test-engineer`, `performance-optimizer`, `seo-specialist` | Based on needs |
+## Adding a New IDE Converter
 
-> 🔴 **Agent Selection Rule:**
-> - Web app → `frontend-specialist` (NO `mobile-developer`)
-> - Mobile app → `mobile-developer` (NO `frontend-specialist`)
-> - API only → `backend-specialist` (NO frontend, NO mobile)
+1. Create `src/agent_bridge/converters/my_ide.py` — subclass `BaseConverter`, implement required methods, call `converter_registry.register(MyIDEConverter)` at module level.
 
----
+2. Create `src/agent_bridge/converters/_my_ide_impl.py` — conversion logic functions.
 
-### Verification Phase (PHASE X)
+3. Add import to `src/agent_bridge/converters/__init__.py`.
 
-| Step | Action | Command |
-|------|--------|---------|
-| 1 | Checklist | Purple check, Template check, Socratic respected? |
-| 2 | Scripts | `security_scan.py`, `ux_audit.py`, `lighthouse_audit.py` |
-| 3 | Build | `npm run build` |
-| 4 | Run & Test | `npm run dev` + manual test |
-| 5 | Complete | Mark all `[ ]` → `[x]` in PLAN.md |
+4. **Zero changes** needed in CLI, services, or utils. The registry auto-discovers the new converter.
 
-> 🔴 **Rule:** DO NOT mark `[x]` without actually running the check!
+5. Add tests in `tests/test_my_ide_converter.py`.
 
-
-
-> **Parallel:** Different agents/files OK. **Serial:** Same file, Component→Consumer, Schema→Types.
-
----
-
-## Planning Process
-
-### Step 1: Request Analysis
-
-```
-Parse the request to understand:
-├── Domain: What type of project? (ecommerce, auth, realtime, cms, etc.)
-├── Features: Explicit + Implied requirements
-├── Constraints: Tech stack, timeline, scale, budget
-└── Risk Areas: Complex integrations, security, performance
-```
-
-### Step 2: Component Identification
-
-**🔴 PROJECT TYPE DETECTION (MANDATORY)**
-
-Before assigning agents, determine project type:
-
-| Trigger | Project Type | Primary Agent | DO NOT USE |
-|---------|--------------|---------------|------------|
-| "mobile app", "iOS", "Android", "React Native", "Flutter", "Expo" | **MOBILE** | `mobile-developer` | ❌ frontend-specialist, backend-specialist |
-| "website", "web app", "Next.js", "React" (web) | **WEB** | `frontend-specialist` | ❌ mobile-developer |
-| "API", "backend", "server", "database" (standalone) | **BACKEND** | `backend-specialist | - |
-
-> 🔴 **CRITICAL:** Mobile project + frontend-specialist = WRONG. Mobile project = mobile-developer ONLY.
-
----
-
-**Components by Project Type:**
-
-| Component | WEB Agent | MOBILE Agent |
-|-----------|-----------|---------------|
-| Database/Schema | `database-architect` | `mobile-developer` |
-| API/Backend | `backend-specialist` | `mobile-developer` |
-| Auth | `security-auditor` | `mobile-developer` |
-| UI/Styling | `frontend-specialist` | `mobile-developer` |
-| Tests | `test-engineer` | `mobile-developer` |
-| Deploy | `devops-engineer` | `mobile-developer` |
-
-> `mobile-developer` is full-stack for mobile projects.
-
----
-
-### Step 3: Task Format
-
-**Required fields:** `task_id`, `name`, `agent`, `skills`, `priority`, `dependencies`, `INPUT→OUTPUT→VERIFY`
-
-> [!TIP]
-> **Bonus**: For each task, indicate the best agent AND the best skill from the project to implement it.
-
-> Tasks without verification criteria are incomplete.
-
----
-
-## 🟢 ANALYTICAL MODE vs. PLANNING MODE
-
-**Before generating a file, decide the mode:**
-
-| Mode | Trigger | Action | Plan File? |
-|------|---------|--------|------------|
-| **SURVEY** | "analyze", "find", "explain" | Research + Survey Report | ❌ NO |
-| **PLANNING**| "build", "refactor", "create"| Task Breakdown + Dependencies| ✅ YES |
-
----
-
-## Output Format
-
-**PRINCIPLE:** Structure matters, content is unique to each project.
-
-### 🔴 Step 6: Create Plan File (DYNAMIC NAMING)
-
-> 🔴 **ABSOLUTE REQUIREMENT:** Plan MUST be created before exiting PLANNING mode.
-> � **BAN:** NEVER use generic names like `plan.md`, `PLAN.md`, or `plan.dm`.
-
-**Plan Storage (For PLANNING Mode):** `./{task-slug}.md` (project root)
+## Testing
 
 ```bash
-# NO docs folder needed - file goes to project root
-# File name based on task:
-# "e-commerce site" → ./ecommerce-site.md
-# "add auth feature" → ./auth-feature.md
+# All tests
+pytest tests/
+
+# Specific suite
+pytest tests/test_capture_service.py
+
+# Pattern match
+pytest tests/ -k "roundtrip"
+
+# Verbose
+pytest tests/ -v
 ```
 
-> 🔴 **Location:** Project root (current directory) - NOT docs/ folder.
+Current status: **137/137 tests passing**.
 
-**Required Plan structure:**
+Test categories: converter end-to-end, reverse conversion, roundtrip (forward → reverse → compare), capture service, snapshot CRUD, vault merger, plugin system, MCP transformation, agent registry validation, status collection, CLI integration.
 
-| Section | Must Include |
-|---------|--------------|
-| **Overview** | What & why |
-| **Project Type** | WEB/MOBILE/BACKEND (explicit) |
-| **Success Criteria** | Measurable outcomes |
-| **Tech Stack** | Technologies with rationale |
-| **File Structure** | Directory layout |
-| **Task Breakdown** | All tasks with Agent + Skill recommendations and INPUT→OUTPUT→VERIFY |
-| **Phase X** | Final verification checklist |
+## Code Style
 
-**EXIT GATE:**
-```
-[IF PLANNING MODE]
-[OK] Plan file written to ./{slug}.md
-[OK] Read ./{slug}.md returns content
-[OK] All required sections present
-→ ONLY THEN can you exit planning.
-
-[IF SURVEY MODE]
-→ Report findings in chat and exit.
-```
-
-> 🔴 **VIOLATION:** Exiting WITHOUT a plan file in **PLANNING MODE** = FAILED.
-
----
-
-### Required Sections
-
-| Section | Purpose | PRINCIPLE |
-|---------|---------|-----------|
-| **Overview** | What & why | Context-first |
-| **Success Criteria** | Measurable outcomes | Verification-first |
-| **Tech Stack** | Technology choices with rationale | Trade-off awareness |
-| **File Structure** | Directory layout | Organization clarity |
-| **Task Breakdown** | Detailed tasks (see format below) | INPUT → OUTPUT → VERIFY |
-| **Phase X: Verification** | Mandatory checklist | Definition of done |
-
-### Phase X: Final Verification (MANDATORY SCRIPT EXECUTION)
-
-> 🔴 **DO NOT mark project complete until ALL scripts pass.**
-> 🔴 **ENFORCEMENT: You MUST execute these Python scripts!**
-
-> 💡 **Script paths are relative to `.agent/` directory**
-
-#### 1. Run All Verifications (RECOMMENDED)
+| Rule | Value |
+|------|-------|
+| Linter | Ruff |
+| Line length | 120 chars |
+| Target | Python 3.8 |
+| Type hints | Optional, encouraged |
 
 ```bash
-# SINGLE COMMAND - Runs all checks in priority order:
-python .agent/scripts/verify_all.py . --url http://localhost:3000
-
-# Priority Order:
-# P0: Security Scan (vulnerabilities, secrets)
-# P1: Color Contrast (WCAG AA accessibility)
-# P1.5: UX Audit (Psychology laws, Fitts, Hick, Trust)
-# P2: Touch Target (mobile accessibility)
-# P3: Lighthouse Audit (performance, SEO)
-# P4: Playwright Tests (E2E)
+make lint      # Check
+make format    # Auto-fix
+make check     # Full check
+make clean     # Remove __pycache__
 ```
 
-#### 2. Or Run Individually
+## Common Tasks for AI Agents
 
-```bash
-# P0: Lint & Type Check
-npm run lint && npx tsc --noEmit
+### Modifying a converter
+Edit `_*_impl.py` for logic changes. Run the converter's test suite. Check roundtrip tests still pass.
 
-# P0: Security Scan
-python .agent/skills/vulnerability-scanner/scripts/security_scan.py .
+### Adding an agent role
+Add `AgentRole(...)` in `core/agent_registry.py`. Run `pytest tests/test_agent_registry.py` to verify references.
 
-# P1: UX Audit
-python .agent/skills/frontend-design/scripts/ux_audit.py .
+### Changing capture behavior
+Edit `services/capture_service.py`. The capture flow is: `scan_for_captures()` → determine status via bridge-meta → `execute_capture()` → call converter's `apply_reverse_capture()`.
 
-# P3: Lighthouse (requires running server)
-python .agent/skills/performance-profiling/scripts/lighthouse_audit.py http://localhost:3000
+### Modifying MCP distribution
+Each converter has `mcp_output_path` property and `transform_mcp_config()` method. The shared logic is in `utils/mcp.py`.
 
-# P4: Playwright E2E (requires running server)
-python .agent/skills/webapp-testing/scripts/playwright_runner.py http://localhost:3000 --screenshot
+## Dependencies
+
+| Package | Used For |
+|---------|----------|
+| PyYAML | YAML frontmatter parsing |
+| rich | Colored terminal output |
+| questionary | Interactive TUI prompts |
+
+Note: `click` is declared in `pyproject.toml` but not imported anywhere in the codebase. The CLI uses Python's built-in `argparse`.
+
+## Project Structure Reference
+
 ```
-
-#### 3. Build Verification
-```bash
-# For Node.js projects:
-npm run build
-# → IF warnings/errors: Fix before continuing
+agent-bridge/
+├── src/agent_bridge/
+│   ├── __init__.py          # Package init, triggers converter registration
+│   ├── cli.py               # CLI entry point (argparse)
+│   ├── tui.py               # Interactive TUI (questionary)
+│   ├── utils.py             # Legacy utils (backward compat)
+│   ├── converters/          # IDE-specific converters
+│   ├── core/                # Types, registry, base classes
+│   ├── services/            # Business logic
+│   ├── utils/               # Split utility modules
+│   └── vault/               # Knowledge vault management
+├── tests/                   # 137 tests
+├── docs/
+│   ├── README.vi.md         # Vietnamese README
+│   └── refactor-baseline.md # Refactor changelog
+├── scripts/                 # Setup and pre-commit scripts
+├── pyproject.toml           # Package config
+├── Makefile                 # Dev commands
+├── README.md                # User-facing documentation
+├── AGENTS.md                # This file
+└── llms.txt                 # LLM-readable project summary
 ```
-
-#### 4. Runtime Verification
-```bash
-# Start dev server and test:
-npm run dev
-
-# Optional: Run Playwright tests if available
-python .agent/skills/webapp-testing/scripts/playwright_runner.py http://localhost:3000 --screenshot
-```
-
-#### 4. Rule Compliance (Manual Check)
-- [ ] No purple/violet hex codes
-- [ ] No standard template layouts
-- [ ] Socratic Gate was respected
-
-#### 5. Phase X Completion Marker
-```markdown
-# Add this to the plan file after ALL checks pass:
-## ✅ PHASE X COMPLETE
-- Lint: ✅ Pass
-- Security: ✅ No critical issues
-- Build: ✅ Success
-- Date: [Current Date]
-```
-
-> 🔴 **EXIT GATE:** Phase X marker MUST be in PLAN.md before project is complete.
-
----
-
-## Missing Information Detection
-
-**PRINCIPLE:** Unknowns become risks. Identify them early.
-
-| Signal | Action |
-|--------|--------|
-| "I think..." phrase | Defer to explorer-agent for codebase analysis |
-| Ambiguous requirement | Ask clarifying question before proceeding |
-| Missing dependency | Add task to resolve, mark as blocker |
-
-**When to defer to explorer-agent:**
-- Complex existing codebase needs mapping
-- File dependencies unclear
-- Impact of changes uncertain
-
----
-
-## Best Practices (Quick Reference)
-
-| # | Principle | Rule | Why |
-|---|-----------|------|-----|
-| 1 | **Task Size** | 2-10 min, one clear outcome | Easy verification & rollback |
-| 2 | **Dependencies** | Explicit blockers only | No hidden failures |
-| 3 | **Parallel** | Different files/agents OK | Avoid merge conflicts |
-| 4 | **Verify-First** | Define success before coding | Prevents "done but broken" |
-| 5 | **Rollback** | Every task has recovery path | Tasks fail, prepare for it |
-| 6 | **Context** | Explain WHY not just WHAT | Better agent decisions |
-| 7 | **Risks** | Identify before they happen | Prepared responses |
-| 8 | **DYNAMIC NAMING** | `docs/PLAN-{task-slug}.md` | Easy to find, multiple plans OK |
-| 9 | **Milestones** | Each phase ends with working state | Continuous value |
-| 10 | **Phase X** | Verification is ALWAYS final | Definition of done |
-
----
-

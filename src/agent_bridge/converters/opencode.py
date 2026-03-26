@@ -1,5 +1,5 @@
 """
-OpenCode converter — chuyen doi .agent/ sang dang .opencode/agents, commands, skills.
+OpenCode converter — converts .agent/ sang dang .opencode/agents, commands, skills.
 """
 
 import shutil

@@ -17,9 +17,23 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
+from agent_bridge.core.frontmatter import FrontmatterParser
+
 # =============================================================================
 # WINDSURF RULE CONFIGURATION
 # =============================================================================
+
+# Windsurf per-rule character limit
+# See: https://docs.windsurf.com/windsurf/cascade/memories#rule-limits
+WINDSURF_RULE_MAX_CHARS = 12000
+WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
+
+
+def _truncate_windsurf_output(output: str) -> str:
+    """Truncate output to fit Windsurf rule limit."""
+    if len(output) > WINDSURF_RULE_MAX_CHARS:
+        return output[: WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
+    return output
 
 # Activation modes:
 # 1. "always" - Always On: rule always applied
@@ -217,18 +231,27 @@ def convert_skill_to_windsurf_rule(source_dir: Path, dest_path: Path) -> bool:
 
         content = skill_file.read_text(encoding="utf-8")
 
-        # Get activation config
-        config = SKILL_ACTIVATION_MAP.get(
-            skill_name,
-            {
-                "mode": "model",
-                "description": f"Rules for {skill_name.replace('-', ' ')}",
-                "globs": [],
-            },
-        )
+        # Get activation config - try centralized registry first
+        config = None
+        try:
+            from agent_bridge.core.skill_metadata import get_windsurf_config
+            config = get_windsurf_config(skill_name)
+        except ImportError:
+            pass
+        
+        if not config:
+            config = SKILL_ACTIVATION_MAP.get(
+                skill_name,
+                {
+                    "mode": "model",
+                    "description": f"Rules for {skill_name.replace('-', ' ')}",
+                    "globs": [],
+                },
+            )
 
-        # Remove existing frontmatter/header
-        content_clean = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
+        # Remove existing frontmatter/header using FrontmatterParser
+        parser = FrontmatterParser()
+        content_clean = parser.strip(content)
         content_clean = re.sub(r"^#\s+.+\n*", "", content_clean)  # Remove first H1
 
         # Generate header with activation mode
@@ -243,17 +266,11 @@ def convert_skill_to_windsurf_rule(source_dir: Path, dest_path: Path) -> bool:
         for md_file in sorted(source_dir.glob("*.md")):
             if md_file.name != "SKILL.md":
                 additional = md_file.read_text(encoding="utf-8")
-                additional_clean = re.sub(r"^---\n.*?\n---\n*", "", additional, flags=re.DOTALL)
+                additional_clean = parser.strip(additional)
                 content_clean += f"\n\n---\n\n{additional_clean}"
 
-        # Windsurf has a per-rule character limit
-        # See: https://docs.windsurf.com/windsurf/cascade/memories#rule-limits
-        WINDSURF_RULE_MAX_CHARS = 12000
-        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
-
         output = f"{header}{content_clean.strip()}\n"
-        if len(output) > WINDSURF_RULE_MAX_CHARS:
-            output = output[: WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
+        output = _truncate_windsurf_output(output)
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -270,8 +287,9 @@ def convert_agent_to_windsurf_rule(source_path: Path, dest_path: Path) -> bool:
         agent_slug = source_path.stem.lower()
         agent_name = agent_slug.replace("-", " ").title()
 
-        # Remove existing frontmatter
-        content_clean = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
+        # Remove existing frontmatter using FrontmatterParser
+        parser = FrontmatterParser()
+        content_clean = parser.strip(content)
 
         # Generate header
         header = generate_windsurf_rule_header(
@@ -281,12 +299,8 @@ def convert_agent_to_windsurf_rule(source_path: Path, dest_path: Path) -> bool:
             globs=[],
         )
 
-        WINDSURF_RULE_MAX_CHARS = 12000
-        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
-
         output = f"{header}{content_clean.strip()}\n"
-        if len(output) > WINDSURF_RULE_MAX_CHARS:
-            output = output[: WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
+        output = _truncate_windsurf_output(output)
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -320,17 +334,14 @@ def convert_workflow_to_windsurf(source_path: Path, dest_path: Path) -> bool:
         if desc_match:
             description = (desc_match.group(1) or desc_match.group(2) or "").strip()
 
-        # Remove existing frontmatter
-        content_clean = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
+        # Remove existing frontmatter using FrontmatterParser
+        parser = FrontmatterParser()
+        content_clean = parser.strip(content)
 
         # Build workflow output
         output = generate_workflow_content(workflow_name, steps, description)
         output += f"\n\n---\n\n## Full Instructions\n\n{content_clean.strip()}\n"
-
-        WINDSURF_RULE_MAX_CHARS = 12000
-        WINDSURF_TRUNCATE_SUFFIX = "\n\n... (truncated to fit Windsurf rule limit)\n"
-        if len(output) > WINDSURF_RULE_MAX_CHARS:
-            output = output[: WINDSURF_RULE_MAX_CHARS - len(WINDSURF_TRUNCATE_SUFFIX)] + WINDSURF_TRUNCATE_SUFFIX
+        output = _truncate_windsurf_output(output)
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -346,14 +357,15 @@ def create_windsurfrules(dest_root: Path, source_root: Path) -> bool:
         parts = ["# Project Rules for Windsurf", ""]
 
         # Pull from always-on skills first (these are the most relevant)
+        parser = FrontmatterParser()
         skills_src = source_root / ".agent" / "skills"
         if skills_src.exists():
             for skill_name in ["clean-code", "behavioral-modes"]:
                 skill_file = skills_src / skill_name / "SKILL.md"
                 if skill_file.exists():
                     content = skill_file.read_text(encoding="utf-8")
-                    # Strip frontmatter
-                    content = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
+                    # Strip frontmatter using FrontmatterParser
+                    content = parser.strip(content)
                     parts.append(content.strip())
                     parts.append("")
 
@@ -448,19 +460,16 @@ def convert_to_windsurf(source_root: Path, dest_root: Path, verbose: bool = True
             print("  ✓ .windsurfrules (legacy)")
 
     # Run external skill plugins (declarative, config-driven via .agent/plugins.json)
-    try:
-        from agent_bridge.core.plugins import PluginRunner
+    from agent_bridge.core.plugins import PluginRunner
 
-        runner = PluginRunner(source_root)
-        plugin_results = runner.run_for_ide("windsurf", dest_root, verbose=verbose)
-        for pname, pstatus in plugin_results.items():
-            if pstatus == "ok":
-                if verbose:
-                    print(f"  ✓ Plugin '{pname}' installed")
-            elif pstatus.startswith("error"):
-                stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
-    except ImportError:
-        pass
+    runner = PluginRunner(source_root)
+    plugin_results = runner.run_for_ide("windsurf", dest_root, verbose=verbose)
+    for pname, pstatus in plugin_results.items():
+        if pstatus == "ok":
+            if verbose:
+                print(f"  ✓ Plugin '{pname}' installed")
+        elif pstatus.startswith("error"):
+            stats["warnings"].append(f"Plugin '{pname}': {pstatus}")
 
     if verbose:
         print(f"\nWindsurf conversion complete: {stats['rules']} rules, {stats['workflows']} workflows")
