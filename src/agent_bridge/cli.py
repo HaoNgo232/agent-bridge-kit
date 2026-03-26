@@ -280,10 +280,23 @@ def _handle_snapshot(args):
             print(f"  Updated: {info.updated}")
             print(f"  Contents: {info.contents}")
     elif action == "delete":
+        import questionary
+        
         name = getattr(args, "name", None)
         if not name:
             print(f"{Colors.RED}Usage: agent-bridge snapshot delete <name>{Colors.ENDC}")
             return
+        
+        # Confirmation prompt
+        confirm = questionary.confirm(
+            f"Delete snapshot '{name}'? This cannot be undone.",
+            default=False
+        ).ask()
+        
+        if not confirm:
+            print(f"{Colors.YELLOW}Deletion cancelled.{Colors.ENDC}")
+            return
+        
         if delete_snapshot(name):
             print(f"{Colors.GREEN}Snapshot '{name}' deleted.{Colors.ENDC}")
         else:
@@ -310,9 +323,22 @@ def _handle_update(args):
 
 def _handle_clean(args, registry):
     import shutil
+    import questionary
 
     project = Path.cwd()
     formats = _get_selected_formats(args, registry)
+
+    # Confirmation prompt for destructive action
+    if not args.force:
+        format_list = ", ".join(formats)
+        confirm = questionary.confirm(
+            f"This will delete generated configs for: {format_list}. Continue?",
+            default=False
+        ).ask()
+        
+        if not confirm:
+            print(f"{Colors.YELLOW}Cleanup cancelled.{Colors.ENDC}")
+            return
 
     for name in formats:
         conv = registry.get(name)
@@ -395,6 +421,18 @@ def _handle_vault(args):
             print(f"{Colors.RED}{e}{Colors.ENDC}")
 
     elif action == "remove":
+        import questionary
+        
+        # Confirmation prompt
+        confirm = questionary.confirm(
+            f"Remove vault '{args.name}' and delete its cache?",
+            default=False
+        ).ask()
+        
+        if not confirm:
+            print(f"{Colors.YELLOW}Removal cancelled.{Colors.ENDC}")
+            return
+        
         if vm.remove(args.name):
             print(f"{Colors.GREEN}Vault '{args.name}' removed.{Colors.ENDC}")
         else:

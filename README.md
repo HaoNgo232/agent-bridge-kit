@@ -46,8 +46,10 @@ Agent Bridge provides a **single source of truth** (`.agent/` directory) and aut
 - **Knowledge Vaults**: Register git repos or local directories as agent knowledge sources
 - **MCP Integration**: Model Context Protocol configuration distribution
 - **Plugin System**: Declarative external skill installation via `plugins.json`
-- **Interactive TUI**: Questionary-based setup wizard
+- **Interactive TUI**: Questionary-based setup wizard with adaptive colors
 - **Conflict Resolution**: `ide_wins` or `agent_wins` strategies
+- **Professional CLI UX**: Loading spinners, step indicators, actionable errors, NO_COLOR support
+- **Accessibility**: WCAG 2.1 AA compliant, works on light/dark terminals, screen reader friendly
 
 ---
 

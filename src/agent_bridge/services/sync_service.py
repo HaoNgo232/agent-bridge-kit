@@ -11,6 +11,7 @@ from pathlib import Path
 
 from agent_bridge.core.converter import converter_registry
 from agent_bridge.utils import Colors, get_master_agent_dir
+from agent_bridge.utils.display import print_error, print_info, print_step, print_success
 from agent_bridge.vault import VaultManager
 from agent_bridge.vault.merger import MergeStrategy, merge_source_into_project
 
@@ -26,19 +27,19 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
     vm = VaultManager()
 
     if verbose:
-        print(f"{Colors.HEADER}Updating knowledge vaults to: {target_dir}{Colors.ENDC}")
+        print(f"\n{Colors.HEADER}Updating knowledge vaults to: {target_dir}{Colors.ENDC}\n")
 
     # Buoc 1: Sync vault
     if verbose:
-        print(f"{Colors.BLUE}  Syncing vault sources...{Colors.ENDC}")
+        print_step("Syncing vault sources", 1, 3)
     sync_results = vm.sync(verbose=verbose)
 
     has_success = any(s.get("status") == "ok" for s in sync_results.values())
     if not has_success:
         if verbose:
-            print(f"{Colors.RED}All vault syncs failed.{Colors.ENDC}")
+            print_error("All vault syncs failed")
             for name, stats in sync_results.items():
-                print(f"  {name}: {stats.get('status', 'unknown')}")
+                print(f"    {name}: {stats.get('status', 'unknown')}")
         return
 
     # Buoc 2: Merge vao project
@@ -50,7 +51,7 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
 
     target_path.mkdir(parents=True, exist_ok=True)
     if verbose:
-        print(f"{Colors.BLUE}  Merging vaults into {target_path}...{Colors.ENDC}")
+        print_step(f"Merging vaults into {target_path}", 2, 3)
 
     vm.merge_to_project(target_path, verbose=verbose)
 
@@ -65,15 +66,17 @@ def run_update(target_dir: Path, verbose: bool = True) -> None:
             if src_conf.exists() and not dst_conf.exists():
                 shutil.copy2(src_conf, dst_conf)
                 if verbose:
-                    print(f"{Colors.GREEN}    Init {config_file} from {vault.name}.{Colors.ENDC}")
+                    print_info(f"Initialized {config_file} from {vault.name}")
             elif src_conf.exists() and verbose:
-                print(f"{Colors.YELLOW}    Kept local {config_file}.{Colors.ENDC}")
+                print_info(f"Kept local {config_file}")
         break
 
     if verbose:
-        print(f"{Colors.GREEN}Knowledge vaults are now up to date!{Colors.ENDC}")
+        print_success("Knowledge vaults are now up to date!")
 
     # Buoc 4: Tu dong refresh IDE config
+    if verbose:
+        print_step("Refreshing IDE configurations", 3, 3)
     _refresh_detected_ides(Path.cwd(), verbose)
 
 
