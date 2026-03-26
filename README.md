@@ -1,332 +1,398 @@
+## EXECUTIVE SUMMARY
+
+Agent Bridge is a high-quality Python CLI project with a clear architecture, adhering to the Open/Closed Principle through a self-registering converter system. The current codebase has 137 passing tests, supporting 5 IDEs (Cursor, Copilot, Kiro, OpenCode, Windsurf) with bidirectional synchronization capabilities for 3 of them. Key strengths include the Central Agent Registry as a single source of truth for 21 agent roles, a multi-source knowledge vault management system, and a completely declarative JSON-based plugin system. Recent improvements focus on UX (spinners, accessibility, NO_COLOR support) and expanded agent definitions. Current documentation is comprehensive but needs updates to reflect new features like the status dashboard, conflict resolution strategies, and pre-flight validation.
+
+---
+
 # Agent Bridge
 
-> Universal converter for AI agent knowledge with bidirectional sync between `.agent/` format and multiple IDE configurations.
+> Universal converter for AI agent configurations — bidirectional synchronization between the standardized `.agent/` format and specific IDE configurations.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](../LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests: 137 passing](https://img.shields.io/badge/tests-137%20passing-brightgreen.svg)](#testing)
+[![WCAG 2.1 AA](https://img.shields.io/badge/accessibility-WCAG%202.1%20AA-blue.svg)](#accessibility)
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Key Modules](#key-modules)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
+- [Problem Solved](#problem-solved)
+- [Quick Start](#-quick-start)
+- [System Architecture](#system-architecture)
 - [Supported IDEs](#supported-ides)
-- [Commands Reference](#commands-reference)
+- [Command Reference](#command-reference)
 - [Bidirectional Sync Workflow](#bidirectional-sync-workflow)
 - [Knowledge Vaults](#knowledge-vaults)
+- [Snapshot System](#snapshot-system)
 - [MCP Integration](#mcp-integration)
 - [Plugin System](#plugin-system)
-- [Configuration](#configuration)
+- [Central Agent Registry](#central-agent-registry)
+- [Detailed Configuration](#detailed-configuration)
 - [Development Guide](#development-guide)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
-- [Credits](#credits)
 - [License](#license)
 
 ---
 
-## Overview
+## Problem Solved
 
-**Agent Bridge** solves a critical problem in multi-IDE AI development: each IDE (Cursor, Copilot, Kiro, OpenCode, Windsurf) uses its own format for AI agent configurations. Maintaining agent knowledge across multiple IDEs means duplicating and manually syncing configuration files.
+Every AI IDE (Cursor, GitHub Copilot, Kiro, OpenCode, Windsurf) uses its own configuration format for AI agents. When developing with multiple IDEs, you must manually copy and maintain synchronization between these configuration files — a tedious and error-prone process.
 
-Agent Bridge provides a **single source of truth** (`.agent/` directory) and automatically converts it to each IDE's native format. It also supports **reverse conversion** — capturing changes made in IDE configs back to `.agent/`, enabling true bidirectional sync.
-
-### Key Features
-
-- **Forward Conversion**: `.agent/` → IDE-specific formats (5 IDEs supported)
-- **Reverse Capture**: IDE configs → `.agent/` (Cursor, Kiro, Copilot)
-- **Snapshot Management**: Save, restore, and version `.agent/` states
-- **Knowledge Vaults**: Register git repos or local directories as agent knowledge sources
-- **MCP Integration**: Model Context Protocol configuration distribution
-- **Plugin System**: Declarative external skill installation via `plugins.json`
-- **Interactive TUI**: Questionary-based setup wizard with adaptive colors
-- **Conflict Resolution**: `ide_wins` or `agent_wins` strategies
-- **Professional CLI UX**: Loading spinners, step indicators, actionable errors, NO_COLOR support
-- **Accessibility**: WCAG 2.1 AA compliant, works on light/dark terminals, screen reader friendly
-
----
-
-## Architecture
+Agent Bridge solves this by providing a **single source of truth** (the `.agent/` directory) and automatically converting it into the native format of each IDE. More importantly, it supports **reverse synchronization** — capturing changes you make directly in the IDE and bringing them back to `.agent/`.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     CLI (cli.py)                     │
-│              Thin dispatcher / argparse              │
-├──────────┬──────────┬───────────┬───────────────────┤
-│ TUI      │ Services │ Vault     │ Utils             │
-│ (tui.py) │          │           │                   │
-│          │ init     │ manager   │ colors, display   │
-│          │ sync     │ merger    │ filesystem, mcp   │
-│          │ capture  │ sources   │                   │
-│          │ snapshot │           │                   │
-│          │ status   │           │                   │
-├──────────┴──────────┴───────────┴───────────────────┤
-│                   Core Layer                         │
-│  types.py │ agent_registry.py │ converter.py        │
-│  frontmatter.py │ plugins.py                        │
-├─────────────────────────────────────────────────────┤
-│                  Converters                           │
-│  cursor.py  │ copilot.py │ kiro.py                  │
-│  opencode.py │ windsurf.py                          │
-│  _cursor_impl.py │ _copilot_impl.py │ _kiro_impl.py│
-│  _opencode_impl.py │ _windsurf_impl.py              │
-└─────────────────────────────────────────────────────┘
+
+.agent/ (Source of Truth)
+├── agents/*.md
+├── skills/*/SKILL.md
+├── workflows/*.md
+├── rules/*.md
+└── mcp_config.json
+│
+▼ agent-bridge init --all
+┌─────────────────────────────────────┐
+│ .cursor/ .github/ .kiro/ │
+│ .opencode/ .windsurf/ │
+└─────────────────────────────────────┘
+│
+▼ agent-bridge capture --all
+.agent/ (Updated back)
+
 ```
 
-### Design Decisions
+**Key Features:**
 
-1. **Self-Registering Converters**: Each converter registers itself with the `ConverterRegistry` on import. Adding a new IDE requires zero changes to services or CLI — just create two files (`converters/my_ide.py` + `converters/_my_ide_impl.py`).
-
-2. **Central Agent Registry**: `core/agent_registry.py` is the single source of truth for agent roles and capabilities. All converters derive IDE-specific configurations from this registry.
-
-3. **Service Layer Separation**: Business logic lives in `services/`, completely decoupled from CLI parsing. This enables testing without simulating CLI invocations.
-
-4. **Strategy Pattern for Vaults**: `vault/sources.py` implements `GitSource`, `LocalSource`, and `BuiltinSource`, each knowing how to sync itself.
-
-5. **Shared Frontmatter Module**: `core/frontmatter.py` provides unified YAML frontmatter parsing across all converters, eliminating duplicate regex patterns.
-
----
-
-## Tech Stack
-
-| Component      | Technology       | Purpose                      |
-| -------------- | ---------------- | ---------------------------- |
-| Language       | Python 3.8+      | Cross-platform compatibility |
-| CLI Framework  | argparse         | Lightweight argument parsing |
-| Interactive UI | questionary 2.0+ | Checkbox/select prompts      |
-| Rich Output    | rich 13.0+       | Colored terminal output      |
-| Config Parsing | PyYAML           | YAML frontmatter handling    |
-| Linting        | Ruff 0.1+        | Fast Python linter/formatter |
-| Type Checking  | mypy 1.0+        | Static type analysis         |
-| Testing        | pytest 8.3+      | Test framework               |
+- **Forward Conversion**: `.agent/` → 5 specific IDE formats
+- **Reverse Capture**: IDE → `.agent/` (Cursor, Kiro, Copilot)
+- **Snapshot Management**: Store and restore `.agent/` states
+- **Knowledge Vaults**: Register multiple knowledge sources (git repos, local directories, builtin)
+- **MCP Integration**: Distribute Model Context Protocol configurations
+- **Plugin System**: Install external skills via JSON declaration
+- **Interactive TUI**: Built with questionary, supports adaptive colors
+- **Accessibility**: WCAG 2.1 AA compliant, NO_COLOR support, screen reader friendly
 
 ---
 
-## Key Modules
+## 🚀 Quick Start
 
-### Core (`src/agent_bridge/core/`)
-
-| File                | Purpose                                                                                                                           |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `types.py`          | Shared data structures: `AgentRole`, `ConversionResult`, `CapturedFile`, `SnapshotInfo`, `IDEFormat`, `CaptureStatus` enum        |
-| `agent_registry.py` | Central agent role definitions with capabilities (read/write/execute/search), allowed commands, paths, subagents, handoff targets |
-| `converter.py`      | `BaseConverter` ABC and `ConverterRegistry` — the extension point for new IDEs                                                    |
-| `frontmatter.py`    | `FrontmatterParser` for YAML/MDC frontmatter extraction, generation, and stripping                                                |
-| `plugins.py`        | Declarative external skill plugin system — reads `.agent/plugins.json`, installs prerequisites, runs IDE-specific commands        |
-
-### Converters (`src/agent_bridge/converters/`)
-
-Each converter consists of a public module (e.g., `cursor.py`) containing the `BaseConverter` subclass, and a private implementation module (e.g., `_cursor_impl.py`) with conversion logic.
-
-| IDE            | Public Module | Impl Module         | Output Directory | Capture Support |
-| -------------- | ------------- | ------------------- | ---------------- | --------------- |
-| Cursor AI      | `cursor.py`   | `_cursor_impl.py`   | `.cursor/`       | Yes             |
-| GitHub Copilot | `copilot.py`  | `_copilot_impl.py`  | `.github/`       | Yes             |
-| Kiro CLI       | `kiro.py`     | `_kiro_impl.py`     | `.kiro/`         | Yes             |
-| OpenCode       | `opencode.py` | `_opencode_impl.py` | `.opencode/`     | No              |
-| Windsurf       | `windsurf.py` | `_windsurf_impl.py` | `.windsurf/`     | No              |
-
-### Services (`src/agent_bridge/services/`)
-
-| File                  | Purpose                                                                                  |
-| --------------------- | ---------------------------------------------------------------------------------------- |
-| `init_service.py`     | `run_init()` — prepare `.agent/`, run converters, install MCP, write `.bridge-meta.json` |
-| `sync_service.py`     | `run_update()` — sync vaults, merge into project, auto-refresh detected IDE configs      |
-| `capture_service.py`  | `scan_for_captures()` / `execute_capture()` — reverse-sync IDE changes back to `.agent/` |
-| `snapshot_service.py` | CRUD operations for `.agent/` snapshots with manifest tracking                           |
-| `status_service.py`   | `collect_status()` — gather project state data                                           |
-| `status_display.py`   | `display_status()` — formatted terminal output for status                                |
-
-### Vault (`src/agent_bridge/vault/`)
-
-| File         | Purpose                                                                                  |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| `manager.py` | `VaultManager` — registry, sync orchestration, merge coordination                        |
-| `sources.py` | `GitSource`, `LocalSource`, `BuiltinSource` — strategy pattern                           |
-| `merger.py`  | `merge_source_into_project()` with `PROJECT_WINS`, `VAULT_WINS`, `VAULT_ONLY` strategies |
-
----
-
-## Installation
-
-### From GitHub (recommended)
+### Installation
 
 ```bash
+# From GitHub (recommended)
 pipx install git+https://github.com/HaoNgo232/agent-bridge
-```
 
-### From Source (development)
-
-```bash
+# From source (development)
 git clone https://github.com/HaoNgo232/agent-bridge.git
 cd agent-bridge
 pip install -e ".[dev]"
+
+# Or using make
+make setup
 ```
 
-### Quick Setup Script
+**Requirements:** Python 3.8+, Git (for vault sync), Node.js/npm (optional, for plugins)
 
-```bash
-make setup  # Checks environment, installs deps, runs lint
-```
-
-### Requirements
-
-- Python 3.8 or higher
-- Git (for vault sync)
-- Node.js/npm (optional, for external skill plugins)
-
----
-
-## Quick Start
+### Basic Usage (< 2 minutes)
 
 ```bash
 cd your-project
 
-# Interactive setup (recommended)
+# Step 1: Initialize — The interactive TUI will guide you
 agent-bridge init
 
-# Or specify IDE directly
-agent-bridge init --cursor
-agent-bridge init --kiro
+# Or specify directly
+agent-bridge init --cursor --kiro
+
+# Or all IDEs at once
 agent-bridge init --all
 
-# Check project status
+# Step 2: Verification
 agent-bridge status
 
-# Pull latest knowledge and refresh configs
-agent-bridge update
+# Step 3: After editing in IDE, sync back
+agent-bridge capture --cursor
 ```
+
+After running `agent-bridge init --cursor`, your project structure will look like this:
+
+```
+your-project/
+├── .agent/                    # Source of Truth (manually created or from vault)
+│   ├── agents/orchestrator.md
+│   ├── skills/clean-code/SKILL.md
+│   ├── workflows/plan.md
+│   ├── rules/global.md
+│   ├── mcp_config.json
+│   └── .bridge-meta.json      # Automatically created, tracks generated files
+├── .cursor/                   # Automatically generated by Agent Bridge
+│   ├── agents/orchestrator.md
+│   ├── rules/clean-code.mdc
+│   ├── skills/plan/SKILL.md
+│   └── mcp.json
+└── ... (your project code)
+```
+
+---
+
+## System Architecture
+
+### Layered Overview
+
+```mermaid
+graph TB
+    CLI["CLI (cli.py)<br/>Thin dispatcher / argparse"]
+    TUI["TUI (tui.py)<br/>Interactive prompts / questionary"]
+
+    subgraph Services["Services Layer — Business Logic"]
+        INIT["init_service.py<br/>Prepare .agent/, run converters"]
+        SYNC["sync_service.py<br/>Sync vaults, merge, refresh IDE"]
+        CAPTURE["capture_service.py<br/>Reverse-sync IDE → .agent/"]
+        SNAPSHOT["snapshot_service.py<br/>CRUD snapshots"]
+        STATUS["status_service.py<br/>+ status_display.py"]
+    end
+
+    subgraph Core["Core Layer — Types & Registry"]
+        TYPES["types.py<br/>AgentRole, ConversionResult, etc."]
+        REGISTRY["agent_registry.py<br/>21 agent roles (SSoT)"]
+        CONVERTER["converter.py<br/>BaseConverter ABC + Registry"]
+        FM["frontmatter.py<br/>YAML/MDC parser"]
+        PLUGINS["plugins.py<br/>External skill plugins"]
+    end
+
+    subgraph Converters["Converters — Self-Registering"]
+        CURSOR["cursor.py + _cursor_impl.py"]
+        COPILOT["copilot.py + _copilot_impl.py"]
+        KIRO["kiro.py + _kiro_impl.py"]
+        OPENCODE["opencode.py + _opencode_impl.py"]
+        WINDSURF["windsurf.py + _windsurf_impl.py"]
+    end
+
+    subgraph Vault["Vault Layer — Knowledge Management"]
+        MANAGER["manager.py<br/>Registry + sync orchestration"]
+        SOURCES["sources.py<br/>GitSource, LocalSource, BuiltinSource"]
+        MERGER["merger.py<br/>PROJECT_WINS / VAULT_WINS / VAULT_ONLY"]
+    end
+
+    CLI --> TUI
+    CLI --> Services
+    Services --> Core
+    Services --> Vault
+    Converters --> Core
+    INIT --> CONVERTER
+    CAPTURE --> CONVERTER
+    SYNC --> Vault
+```
+
+### Key Design Decisions
+
+**1. Self-Registering Converters (Open/Closed Principle)**
+
+Each converter registers itself with the `ConverterRegistry` at import time. When Python loads `src/agent_bridge/converters/__init__.py`, it imports all converter modules, triggering their registration. Adding a new IDE only requires creating 2 files — no changes to services, CLI, or utils are needed.
+
+```python
+# src/agent_bridge/converters/__init__.py
+from . import copilot   # triggers CopilotConverter registration
+from . import cursor
+from . import kiro
+from . import opencode
+from . import windsurf
+```
+
+Each converter ends with:
+
+```python
+# src/agent_bridge/converters/cursor.py
+converter_registry.register(CursorConverter)
+```
+
+**2. Central Agent Registry — Single Source of Truth**
+
+`src/agent_bridge/core/agent_registry.py` defines 21 agent roles with full capabilities (read/write/execute/search), allowed commands, allowed paths, subagents, and handoff targets. All converters query this registry instead of maintaining their own maps.
+
+```python
+# src/agent_bridge/core/agent_registry.py
+AgentRole(
+    slug="orchestrator", name="Orchestrator",
+    description="High-level coordinator for complex, multi-step tasks",
+    can_read=True, can_write=False, can_execute=False, can_search=True,
+    can_delegate=True, delegatable_agents=["*"],
+    category="primary",
+    subagents=["*"],
+    handoff_targets=["frontend-specialist", "backend-specialist", ...],
+)
+```
+
+Benefit: Add a new agent role once, and all 5 converters automatically receive it. The `validate_agent_references()` function ensures reference integrity.
+
+**3. Bridge Meta Tracking**
+
+When `agent-bridge init` runs, `init_service._write_bridge_meta()` writes `.agent/.bridge-meta.json`, mapping each generated IDE file back to its source file in `.agent/`. The capture service uses this metadata to distinguish between new files (created by the user in the IDE), modified files (mtime > generated_at), and unchanged files.
+
+**4. Service Layer Separation**
+
+All business logic resides in `services/`, completely decoupled from CLI parsing and TUI prompts. Tests call services directly without needing to simulate CLI invocations.
+
+**5. Strategy Pattern for Vaults**
+
+`vault/sources.py` implements 3 strategies: `GitSource` (clone/pull repo), `LocalSource` (symlink-free reference), and `BuiltinSource` (starter vault included with the package). Each source knows how to sync and validate itself.
 
 ---
 
 ## Supported IDEs
 
-| IDE            | Output Directory | Format                           | Status | Capture |
-| -------------- | ---------------- | -------------------------------- | ------ | ------- |
-| Cursor AI      | `.cursor/`       | Markdown + MDC rules             | Beta   | Yes     |
-| GitHub Copilot | `.github/`       | YAML frontmatter markdown        | Beta   | Yes     |
-| Kiro CLI       | `.kiro/`         | JSON agents + markdown prompts   | Beta   | Yes     |
-| OpenCode       | `.opencode/`     | YAML frontmatter markdown + JSON | Beta   | No      |
-| Windsurf       | `.windsurf/`     | Activation-mode markdown         | Beta   | No      |
+| IDE            | Output Directory | Output Format                  | Reverse Capture | Status |
+| -------------- | ---------------- | ------------------------------ | --------------- | ------ |
+| Cursor AI      | `.cursor/`       | Markdown + MDC rules           | Yes             | Beta   |
+| GitHub Copilot | `.github/`       | YAML frontmatter markdown      | Yes             | Beta   |
+| Kiro CLI       | `.kiro/`         | JSON agents + markdown prompts | Yes             | Beta   |
+| OpenCode       | `.opencode/`     | YAML frontmatter + JSON config | No              | Beta   |
+| Windsurf       | `.windsurf/`     | Markdown with activation modes | No              | Beta   |
 
 ### Format Details
 
-**Cursor**: Agents go to `.cursor/agents/*.md` with name/description frontmatter. Skills become either MDC rules (`.cursor/rules/*.mdc` with `alwaysApply`/`globs` frontmatter) or slash-command skills (`.cursor/skills/*/SKILL.md`). Workflows become skills.
+**Cursor** (`src/agent_bridge/converters/_cursor_impl.py`): Agents → `.cursor/agents/*.md` with name/description frontmatter. Skills are categorized as MDC rules (`.cursor/rules/*.mdc` with `alwaysApply`/`globs` for auto-attach) or slash-command skills (`.cursor/skills/*/SKILL.md` for on-demand). Categorization is based on the `MDC_RULES_CONFIG` map and `core/skill_metadata.py` registry. Workflows → skills. Automatically creates `project-instructions.mdc` from `AGENTS.md` if present.
 
-**Copilot**: Agents get full YAML frontmatter (name, description, tools, agents, handoffs). Skills go to `.github/skills/*/SKILL.md`. Workflows become `.github/prompts/*.prompt.md`. Rules become `.github/instructions/*.instructions.md`.
+**Copilot** (`src/agent_bridge/converters/_copilot_impl.py`): Agents → `.github/agents/*.agent.md` with full YAML frontmatter. Tools are derived from AgentRole capabilities via `_role_to_copilot_tools()`. Subagents and handoff prompts are pulled from the Central Agent Registry. Skills → `.github/skills/*/SKILL.md`. Workflows → `.github/prompts/*.prompt.md`. Rules → `.github/instructions/*.instructions.md`. Agent bodies are truncated at 30K characters per Copilot limits.
 
-**Kiro**: Agents become JSON files with tools, allowedTools, toolsSettings, hooks, and resources. Skills are copied directly. Workflows become prompts with Kiro template syntax. Rules go to steering with `inclusion: always` frontmatter.
+**Kiro** (`src/agent_bridge/converters/_kiro_impl.py`): Agents → `.kiro/agents/*.json` per Kiro CLI official spec — including tools, allowedTools (auto-approve), toolsSettings (allowedCommands, allowedPaths), hooks (agentSpawn lifecycle), resources (file:// URIs), and includeMcpJson. MCP server names are auto-trusted via the `@server_name` pattern. Skills → directly copied. Workflows → `.kiro/prompts/*.md` with Kiro template syntax (`{{args}}`). Rules → `.kiro/steering/*.md` with `inclusion: always` frontmatter.
 
-**OpenCode**: Agents get mode (primary/subagent), tools, and permission frontmatter. Workflows become commands. Skills are copied directly.
+**OpenCode** (`src/agent_bridge/converters/_opencode_impl.py`): Agents → `.opencode/agents/*.md` with frontmatter for mode (primary/subagent), tools, and permissions. MCP config is embedded directly into `opencode.json` instead of a separate file — this is OpenCode's specific behavior. Workflows → `.opencode/commands/*.md`. Skills → directly copied. Generates `opencode.json` with schema, instructions globs, and default_agent.
 
-**Windsurf**: Everything becomes rules with activation modes (Always On, Glob, Model Decision, Manual). Workflows get step extraction. A legacy `.windsurfrules` root file is also generated.
+**Windsurf** (`src/agent_bridge/converters/_windsurf_impl.py`): All (agents, skills, workflows) → `.windsurf/rules/*.md` with activation modes (Always On, Glob, Model Decision, Manual). Skills are categorized via `SKILL_ACTIVATION_MAP`. Workflows extract steps from markdown. Per-rule limit of 12,000 characters, truncated if exceeded. Generates a legacy `.windsurfrules` root file from always-on skills + project instructions.
 
 ---
 
-## Commands Reference
+## Command Reference
 
-### `agent-bridge init`
-
-Set up agent configs for your project.
+### `agent-bridge init` — Initialize Configuration
 
 ```bash
-agent-bridge init                    # Interactive TUI
+agent-bridge init                    # Interactive TUI (recommended)
 agent-bridge init --cursor           # Cursor only
 agent-bridge init --kiro --copilot   # Multiple IDEs
-agent-bridge init --all              # All IDEs
-agent-bridge init --from my-snapshot # From saved snapshot
-agent-bridge init --force            # Force overwrite
+agent-bridge init --all              # All 5 IDEs
+agent-bridge init --from my-snapshot # Initialize from a saved snapshot
+agent-bridge init --force            # Overwrite without asking
 agent-bridge init --no-interactive   # Skip TUI
 ```
 
-### `agent-bridge update`
+**Pre-flight Validation**: When running in CLI mode (non-TUI), the system checks if IDE configurations already exist before performing conversion. If they exist without `--force`, it provides an actionable error instead of silently overwriting.
 
-Pull latest knowledge from vaults and refresh existing IDE configs.
+**Processing Flow** (`src/agent_bridge/services/init_service.py`):
 
-```bash
-agent-bridge update
-agent-bridge update --target .agent
-```
+1. Source handling: `project` (local `.agent/`), `vault` (fetch from vault), `merge` (merge vault + project), `snapshot` (from saved state)
+2. Run converter for each selected IDE
+3. Install MCP configuration
+4. Write `.bridge-meta.json` for tracking
 
-### `agent-bridge capture`
-
-Reverse-sync: capture changes from IDE configs back to `.agent/`.
+### `agent-bridge capture` — Reverse Synchronization
 
 ```bash
-agent-bridge capture                              # Interactive
-agent-bridge capture --cursor                     # Cursor only
-agent-bridge capture --all                        # All IDEs
-agent-bridge capture --strategy ide_wins          # IDE changes win
-agent-bridge capture --strategy agent_wins        # Skip unchanged
-agent-bridge capture --dry-run                    # Preview only
+agent-bridge capture                              # Interactive TUI
+agent-bridge capture --cursor                     # From Cursor only
+agent-bridge capture --all                        # From all supported IDEs
+agent-bridge capture --strategy ide_wins          # IDE changes take precedence
+agent-bridge capture --strategy agent_wins        # Keep current .agent/
+agent-bridge capture --strategy smart             # Automated decision (default)
+agent-bridge capture --dry-run                    # Preview only, no writes
 ```
 
-### `agent-bridge snapshot`
+**Smart Strategy**: Analyzes file status to choose the optimal strategy. If more files are NEW than MODIFIED → `ide_wins`. Otherwise, captures MODIFIED and NEW while skipping UNCHANGED.
 
-Save and manage `.agent/` snapshots.
+**Capture Preview**: Shows a diff summary (lines added/removed) and requests confirmation before writing.
+
+### `agent-bridge update` — Sync and Refresh
 
 ```bash
-agent-bridge snapshot save my-snapshot -d "Description"
-agent-bridge snapshot save tagged -t "framework:flutter" -t "lang:dart"
-agent-bridge snapshot list
-agent-bridge snapshot info my-snapshot
-agent-bridge snapshot restore my-snapshot
-agent-bridge snapshot delete my-snapshot
+agent-bridge update                  # Sync vaults + refresh IDE configs
+agent-bridge update --target .agent  # Specify target directory
 ```
 
-### `agent-bridge status`
+**Processing Flow** (`src/agent_bridge/services/sync_service.py`):
 
-Show project dashboard.
+1. Auto-snapshot safety net — saves `auto-pre-update` before changes
+2. Sync all vault sources
+3. Merge into project `.agent/` (PROJECT_WINS strategy)
+4. Copy config files if missing
+5. Auto-refresh IDE configs detected in the project
+
+### `agent-bridge snapshot` — Version Management
 
 ```bash
-agent-bridge status          # Formatted output
-agent-bridge status --json   # Machine-readable JSON
+agent-bridge snapshot save my-snap -d "Description"      # Save
+agent-bridge snapshot save tagged -t "lang:dart"         # Save with tags
+agent-bridge snapshot list                               # List (newest first)
+agent-bridge snapshot info my-snap                       # Details
+agent-bridge snapshot restore my-snap                    # Restore
+agent-bridge snapshot delete my-snap                     # Delete (with confirmation)
 ```
 
-### `agent-bridge vault`
+Snapshots are stored at `~/.config/agent-bridge/snapshots/<name>/` with atomic writes. Saving with the same name automatically increments the version.
 
-Manage knowledge vaults.
+### `agent-bridge status` — Dashboard
 
 ```bash
-agent-bridge vault list
-agent-bridge vault add my-team git@github.com:myorg/ai-agents.git
-agent-bridge vault add local-agents /path/to/agents -p 50
-agent-bridge vault remove my-team
-agent-bridge vault sync
-agent-bridge vault sync --name my-team
+agent-bridge status          # Formatted dashboard
+agent-bridge status --json   # JSON for scripts/CI
 ```
 
-### `agent-bridge mcp`
+Example output:
 
-Install MCP configuration.
+```
+📊 Agent Bridge Dashboard
+📍 Project: /home/user/my-project
+
+📈 Summary: 21 agents • 35 skills • 1 vaults • 3 IDEs
+
+📦 Source:  .agent/ (58 items — agents: 21, skills: 35, workflows: 1, rules: 1)
+🔗 Vaults (1 active):
+   ✓ Synced (1): antigravity-kit
+🖥  IDEs (3 initialized):
+   ✓ cursor     .cursor/        (45 files)
+   ⚠ kiro       .kiro/          (120 files) (stale — run 'agent-bridge update')
+   ✓ copilot    .github/        (25 files)
+   ✗ Not initialized: opencode, windsurf
+🔌 MCP: .agent/mcp_config.json (2 servers: github, filesystem)
+
+🧭 Recommended next steps:
+  • Run 'agent-bridge update' to refresh IDE configs
+```
+
+### `agent-bridge vault` — Knowledge Vault Management
 
 ```bash
-agent-bridge mcp --all
-agent-bridge mcp --cursor --kiro
-agent-bridge mcp --force
+agent-bridge vault list                                     # List vaults
+agent-bridge vault add my-team git@github.com:org/repo.git  # Add Git vault
+agent-bridge vault add local /path/to/agents -p 50          # Add local vault (priority 50)
+agent-bridge vault remove my-team                           # Remove vault
+agent-bridge vault sync                                     # Sync all vaults
+agent-bridge vault sync --name my-team                      # Sync specific vault
 ```
 
-### `agent-bridge clean`
-
-Remove generated IDE configs.
+### `agent-bridge mcp` — Install MCP Configuration
 
 ```bash
-agent-bridge clean --all
-agent-bridge clean --cursor
+agent-bridge mcp --all               # All IDEs
+agent-bridge mcp --cursor --kiro     # Specific IDEs
+agent-bridge mcp --force             # Overwrite existing
 ```
 
-### `agent-bridge list`
+### `agent-bridge clean` — Remove IDE Configs
 
-List all supported IDE formats.
+```bash
+agent-bridge clean --all             # Remove all (with preview + confirmation)
+agent-bridge clean --cursor          # Remove Cursor config
+agent-bridge clean --cursor --force  # Skip confirmation
+```
 
-### Direct Conversion
+### `agent-bridge list` — IDE Formats
+
+Lists all 5 supported IDE formats with their status.
+
+### Direct Conversion (Backward Compatibility)
 
 ```bash
 agent-bridge cursor --source .agent
@@ -338,111 +404,152 @@ agent-bridge copilot
 
 ## Bidirectional Sync Workflow
 
-```bash
-# 1. Initialize IDE configs from .agent/
-agent-bridge init --cursor
+```mermaid
+sequenceDiagram
+    participant A as .agent/ (Source)
+    participant AB as Agent Bridge
+    participant IDE as IDE Config
+    participant S as Snapshot
 
-# 2. Work in Cursor IDE, make changes to agent files
-#    ... edit .cursor/agents/orchestrator.md ...
+    Note over A,IDE: Forward Conversion
+    A->>AB: agent-bridge init --cursor
+    AB->>IDE: Generate .cursor/ files
+    AB->>A: Write .bridge-meta.json
 
-# 3. Capture changes back to .agent/
-agent-bridge capture --ide cursor
+    Note over A,IDE: Work in IDE
+    IDE->>IDE: User edits .cursor/agents/orchestrator.md
 
-# 4. Save a snapshot before major changes
-agent-bridge snapshot save "before-refactor" -d "Stable state"
+    Note over A,IDE: Reverse Capture
+    IDE->>AB: agent-bridge capture --cursor
+    AB->>AB: Compare mtime vs generated_at
+    AB->>A: Write changes back to .agent/
 
-# 5. Make experimental changes
-#    ... edit .agent/ files ...
+    Note over A,S: Snapshot Management
+    A->>AB: agent-bridge snapshot save "stable"
+    AB->>S: Copy .agent/ → snapshots/stable/
 
-# 6. Restore if needed
-agent-bridge snapshot restore "before-refactor"
-
-# 7. Push to another IDE
-agent-bridge init --kiro
+    Note over A,S: Restore if needed
+    S->>AB: agent-bridge snapshot restore "stable"
+    AB->>A: Replace .agent/ content
 ```
 
-### How Bridge Meta Works
+### Bridge Meta Engine
 
-When `agent-bridge init` runs, it writes `.agent/.bridge-meta.json` containing:
+`.agent/.bridge-meta.json` is created after each `init`, containing:
 
-- `generated_at`: Timestamp of generation
-- `generated_for`: List of IDE names
-- `file_map`: Mapping of IDE file paths → `.agent/` file paths
+```json
+{
+  "generated_at": "2026-03-26T14:12:36Z",
+  "generated_for": ["cursor", "kiro"],
+  "file_map": {
+    ".cursor/agents/orchestrator.md": ".agent/agents/orchestrator.md",
+    ".cursor/rules/clean-code.mdc": ".agent/skills/clean-code/SKILL.md",
+    ".kiro/agents/orchestrator.json": ".agent/agents/orchestrator.md"
+  }
+}
+```
 
-The capture service uses this metadata to determine file status:
+The capture service uses `file_map` and `generated_at` to categorize:
 
-- **new**: File not in `file_map` (user-created in IDE)
-- **modified**: File in `file_map` with mtime > `generated_at`
-- **unchanged**: File in `file_map`, not modified since generation
+- **new**: File not found in `file_map` (created by user in IDE)
+- **modified**: File in `file_map` and `mtime > generated_at`
+- **unchanged**: File in `file_map` and not modified
 
 ---
 
 ## Knowledge Vaults
 
-A vault is any directory (git repo or local path) containing an `.agent/` structure:
+A vault is any directory containing a `.agent/` structure:
 
 ```
-.agent/
-├── agents/          # Agent personality files (*.md)
-├── skills/          # Skill directories with SKILL.md
-├── workflows/       # Workflow templates (*.md)
-├── rules/           # Rule files (*.md)
-├── mcp_config.json  # MCP server configuration
-└── plugins.json     # External plugin declarations
+vault-repo/
+└── .agent/
+    ├── agents/*.md
+    ├── skills/*/SKILL.md
+    ├── workflows/*.md
+    ├── rules/*.md
+    ├── mcp_config.json
+    └── plugins.json
 ```
 
-### Built-in Vault
+### Vault Types
 
-Agent Bridge ships with a minimal built-in starter vault that works offline with zero external dependencies. It has the lowest priority (999) and acts as a fallback.
+| Type    | Class           | Description                                |
+| ------- | --------------- | ------------------------------------------ |
+| Git     | `GitSource`     | Clone/pull from a remote repository        |
+| Local   | `LocalSource`   | Direct reference from a local path         |
+| Builtin | `BuiltinSource` | Starter vault included with the package    |
 
-### Vault Priority
+### Merge Priority
 
-When multiple vaults are registered, files are merged with:
+When multiple vaults exist, files are merged in this order:
 
-1. **Project-local files** take highest priority
-2. **Vaults ordered by priority** (lower number = higher priority)
-3. Merge strategy configurable: `PROJECT_WINS`, `VAULT_WINS`, `VAULT_ONLY`
+1. **Project-local files** — highest priority
+2. **Vaults by priority** — lower number = higher priority
+3. Merge strategies: `PROJECT_WINS` (default), `VAULT_WINS`, or `VAULT_ONLY`
 
-### Vault Storage
+### Vault Security
 
-Vaults are stored in `~/.config/agent-bridge/`:
+URLs are validated via the `_SAFE_GIT_URL` regex — only `https://` and `git@` are accepted, preventing URLs starting with `-`. Symlinks are blocked from vault sources, and path traversal is prevented via resolution and startswith checks.
 
-- `vaults.json` — vault registry
-- `cache/<name>/` — cached vault content
-- `snapshots/<name>/` — saved snapshots
+### Storage
+
+Stored in `~/.config/agent-bridge/`:
+- `vaults.json`: Vault registry
+- `cache/`: Cached vault content
+- `snapshots/`: Saved snapshots
+
+---
+
+## Snapshot System
+
+Snapshots provide lightweight version control for the `.agent/` directory, independent of Git.
+
+**Features:**
+
+- **Atomic Write**: Writes to a temporary directory first, then renames — prevents corruption if interrupted.
+- **Auto-versioning**: Saving with the same name increments the version automatically.
+- **Tag Support**: Attach metadata like `framework:flutter` or `lang:dart`.
+- **Content Manifest**: Automatically counts agents/skills/workflows/rules in the snapshot.
+
+**Lifecycle Workflow:**
+
+```bash
+# 1. Save stable state
+agent-bridge snapshot save "pre-refactor" -d "Before restructuring"
+
+# 2. Experiment with changes...
+
+# 3. If it breaks, restore
+agent-bridge snapshot restore "pre-refactor"
+
+# 4. Auto-snapshot on update
+# run_update() automatically saves "auto-pre-update" before merging vaults
+```
 
 ---
 
 ## MCP Integration
 
-Agent Bridge distributes MCP (Model Context Protocol) configuration from `.agent/mcp_config.json` to each IDE's expected location with format transformation:
+Agent Bridge distributes Model Context Protocol (MCP) configurations from `.agent/mcp_config.json` to IDE-specific locations and formats:
 
-| IDE      | MCP Output Path                       | Key Format              |
-| -------- | ------------------------------------- | ----------------------- |
-| Copilot  | `.vscode/mcp.json`                    | `{"servers": {...}}`    |
-| Cursor   | `.cursor/mcp.json`                    | `{"mcpServers": {...}}` |
-| Kiro     | `.kiro/settings/mcp.json`             | `{"mcpServers": {...}}` |
-| OpenCode | Embedded in `.opencode/opencode.json` | Custom format           |
-| Windsurf | `.windsurf/mcp_config.json`           | `{"mcpServers": {...}}` |
+| IDE      | Output Path                           | Key Format              | Notes                               |
+| -------- | ------------------------------------- | ----------------------- | ----------------------------------- |
+| Copilot  | `.vscode/mcp.json`                    | `{"servers": {...}}`    | VS Code requires `servers` key      |
+| Cursor   | `.cursor/mcp.json`                    | `{"mcpServers": {...}}` | Original format                     |
+| Kiro     | `.kiro/settings/mcp.json`             | `{"mcpServers": {...}}` | Direct copy                         |
+| OpenCode | Embedded in `.opencode/opencode.json` | Custom format           | Commands as arrays, adds `type`     |
+| Windsurf | `.windsurf/mcp_config.json`           | `{"mcpServers": {...}}` | Original format                     |
 
-Source format (`.agent/mcp_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
-    }
-  }
-}
-```
+Transformation logic resides in each converter's `transform_mcp_config()` method.
 
 ---
 
 ## Plugin System
 
-External skills can be declared in `.agent/plugins.json`:
+Plugins allow installing external skills (npm packages, pip packages, etc.) via JSON declaration without writing Python code.
+
+**Declaration** (`.agent/plugins.json`):
 
 ```json
 {
@@ -450,7 +557,7 @@ External skills can be declared in `.agent/plugins.json`:
     {
       "name": "ui-ux-pro-max",
       "description": "UI/UX design skill pack",
-      "homepage": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "homepage": "https://github.com/...",
       "install": {
         "requires": "npm",
         "package": "uipro-cli",
@@ -469,120 +576,83 @@ External skills can be declared in `.agent/plugins.json`:
 }
 ```
 
-Plugins are:
-
-- **Declarative**: Defined in JSON, not Python code
-- **Per-IDE**: Each IDE can have its own install command
-- **Conditional**: Only install if trigger condition is met
-- **Safe**: Asks user before installing global packages (unless `--force`)
+**Features:**
+- **Declarative**: Defined in pure JSON, no code changes required.
+- **Per-IDE**: IDE-specific commands.
+- **Conditional**: Runs only if conditions are met.
+- **Safe**: Prompts before global installations; includes a 180s timeout.
 
 ---
 
-## Configuration
+## Central Agent Registry
 
-### Environment
+`src/agent_bridge/core/agent_registry.py` is the single source of truth for 21 agent roles:
 
-No environment variables required for basic usage. MCP servers may require their own environment variables (e.g., `GITHUB_TOKEN`).
+### Agent Categories
+
+| Category | Agents                                                              | Characteristics                      |
+| -------- | ------------------------------------------------------------------- | ------------------------------------ |
+| Primary  | orchestrator, frontend-specialist, backend-specialist               | can_write or can_delegate            |
+| Subagent | project-planner, explorer-agent, security-auditor, test-engineer... | Specialized tasks, invoked by others |
+| Internal | code-archaeologist                                                  | hidden=True, not shown to user       |
+
+### AgentRole Structure
+
+Converters derive IDE-specific configs from `AgentRole` fields such as `slug`, `can_read`, `can_write`, `allowed_commands`, `subagents`, and `handoff_targets`.
+
+---
+
+## Detailed Configuration
 
 ### Project Structure
 
 ```
 your-project/
-├── .agent/                    # Source of truth
+├── .agent/                    # Source of Truth — TRACK in Git
 │   ├── agents/*.md            # Agent definitions
 │   ├── skills/*/SKILL.md      # Skill packs
 │   ├── workflows/*.md         # Workflow templates
 │   ├── rules/*.md             # Global rules
-│   ├── mcp_config.json        # MCP servers
-│   ├── plugins.json           # External plugins
-│   └── .bridge-meta.json      # Generated tracking file
-├── .cursor/                   # Generated Cursor config
-├── .github/                   # Generated Copilot config
-├── .kiro/                     # Generated Kiro config
-├── .opencode/                 # Generated OpenCode config
-└── .windsurf/                 # Generated Windsurf config
+│   ├── mcp_config.json        # MCP config
+│   ├── plugins.json           # Plugins
+│   └── .bridge-meta.json      # Generated tracking (DO NOT EDIT)
+├── .cursor/                   # Generated
+├── .github/                   # Generated
+├── .kiro/                     # Generated
+├── .opencode/                 # Generated
+└── .windsurf/                 # Generated
 ```
 
-### Global Config
+### Environment Variables
 
-```
-~/.config/agent-bridge/
-├── vaults.json                # Vault registry
-├── cache/                     # Cached vault content
-│   ├── builtin-starter/
-│   └── my-team/
-└── snapshots/                 # Saved snapshots
-    ├── before-refactor/
-    └── stable-v1/
-```
+- `NO_COLOR`: Disables ANSI color output.
+- `SCREEN_READER`: Enables screen-reader friendly mode (simple spinners).
+- `GITHUB_TOKEN`: For GitHub-related MCP servers.
 
 ---
 
 ## Development Guide
 
-### Setup
+### Environment Setup
 
 ```bash
 git clone https://github.com/HaoNgo232/agent-bridge.git
 cd agent-bridge
-make setup          # Or manually:
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+make setup
 ```
 
 ### Code Style
 
-- **Linter**: Ruff with pycodestyle, pyflakes, isort, flake8-bugbear, pyupgrade
-- **Line length**: 120 characters
-- **Target**: Python 3.8
-- **Type hints**: Optional but encouraged
+- **Linter**: Ruff
+- **Line Length**: 120 characters
+- **Target Python**: 3.8
+- **Type Hints**: Encouraged
+- **Comments**: Clear and descriptive (Vietnamese in code, English in docs)
 
 ```bash
-make lint           # Run linter
-make format         # Auto-fix and format
-make check          # Full check
-make clean          # Remove cache files
-```
-
-### Adding a New IDE Converter
-
-1. Create `src/agent_bridge/converters/my_ide.py`:
-
-```python
-from agent_bridge.core.converter import BaseConverter, converter_registry
-from agent_bridge.core.types import ConversionResult, IDEFormat
-
-class MyIDEConverter(BaseConverter):
-    @property
-    def format_info(self) -> IDEFormat:
-        return IDEFormat(name="myide", display_name="My IDE", output_dir=".myide")
-
-    def convert(self, source_root, dest_root, verbose=True, force=False):
-        # ... conversion logic ...
-        return ConversionResult(agents=N, skills=N)
-
-    def install_mcp(self, source_root, dest_root, force=False):
-        from agent_bridge.utils import install_mcp_for_ide
-        return install_mcp_for_ide(source_root, dest_root, "myide")
-
-    def clean(self, project_path):
-        # ... cleanup logic ...
-        return True
-
-converter_registry.register(MyIDEConverter)
-```
-
-2. Create `src/agent_bridge/converters/_my_ide_impl.py` with conversion functions.
-
-3. Add import to `src/agent_bridge/converters/__init__.py`.
-
-4. **Zero changes** needed in CLI, services, or utils.
-
-### Pre-commit Hook
-
-```bash
-ln -s ../../scripts/pre-commit.sh .git/hooks/pre-commit
+make lint      # Check
+make format    # Auto-fix + format
+make check     # Full check
 ```
 
 ---
@@ -590,108 +660,24 @@ ln -s ../../scripts/pre-commit.sh .git/hooks/pre-commit
 ## Testing
 
 ```bash
-# Run all tests
+# Run all 137 tests
 pytest tests/
-
-# Run with verbose output
-pytest tests/ -v
-
-# Run specific test suites
-pytest tests/test_capture_service.py
-pytest tests/test_snapshot_service.py
-pytest tests/test_roundtrip.py
-pytest tests/test_plugins.py
-pytest tests/test_status_service.py
-
-# Run tests matching a pattern
-pytest tests/ -k "roundtrip"
-
-# Current status: 137/137 tests passing
 ```
 
-### Test Structure
-
-| Test File                    | Coverage                               |
-| ---------------------------- | -------------------------------------- |
-| `test_agent_registry.py`     | Central agent role registry validation |
-| `test_capture_service.py`    | Reverse-sync scanning and execution    |
-| `test_cli_snapshot.py`       | CLI snapshot command integration       |
-| `test_converter_registry.py` | Converter registration and lookup      |
-| `test_converters.py`         | Copilot converter details              |
-| `test_copilot_converter.py`  | Copilot end-to-end conversion          |
-| `test_cursor_converter.py`   | Cursor end-to-end conversion           |
-| `test_init_service.py`       | Bridge-meta delegation tests           |
-| `test_kiro_converter.py`     | Kiro end-to-end conversion             |
-| `test_kiro_reverse_edge.py`  | Kiro reverse edge cases                |
-| `test_mcp_transform.py`      | MCP format transformation              |
-| `test_merger.py`             | Vault merge strategies                 |
-| `test_plugins.py`            | Plugin system loading and execution    |
-| `test_reverse_copilot.py`    | Copilot reverse conversion             |
-| `test_reverse_cursor.py`     | Cursor reverse conversion              |
-| `test_reverse_kiro.py`       | Kiro reverse conversion                |
-| `test_roundtrip.py`          | Forward → reverse body preservation    |
-| `test_snapshot_service.py`   | Snapshot CRUD operations               |
-| `test_status_service.py`     | Status collection and display          |
-| `test_utils.py`              | Utility function tests                 |
+Test categories include: converter end-to-end, reverse conversion, roundtrip (forward → reverse → compare), capture service, snapshot CRUD, vault merger, and plugin system.
 
 ---
 
 ## Troubleshooting
 
 ### "No .agent/ directory available"
-
-Your project doesn't have a `.agent/` directory. Either:
-
-- Run `agent-bridge init` with the `vault` source option to bootstrap from a vault
-- Create `.agent/agents/` and `.agent/skills/` manually
-- Use `agent-bridge init --from <snapshot>` if you have a saved snapshot
-
-### "No vaults registered"
-
-Run `agent-bridge vault add` to register a knowledge source:
-
-```bash
-agent-bridge vault add my-team https://github.com/myorg/ai-agents.git
-agent-bridge vault sync
-```
+Run `agent-bridge init` with a `vault` source or create it manually.
 
 ### Capture shows all files as "new"
-
-This happens when `.agent/.bridge-meta.json` is missing or outdated. Re-run `agent-bridge init` to regenerate the tracking file, then capture will correctly detect modifications.
-
-### MCP config not working in VS Code/Copilot
-
-VS Code expects MCP servers under the `"servers"` key, not `"mcpServers"`. Agent Bridge handles this transformation automatically. Verify `.vscode/mcp.json` contains `{"servers": {...}}`.
-
-### Plugin installation fails
-
-1. Ensure the required package manager (npm/pip/cargo) is installed
-2. Check network connectivity for global package installs
-3. Try manual installation: `npm install -g <package-name>`
-4. Use `--force` flag to skip confirmation prompts
+`.agent/.bridge-meta.json` is missing. Re-run `agent-bridge init`.
 
 ### Stale IDE configs
-
-Run `agent-bridge status` to check staleness, then `agent-bridge update` to refresh.
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make changes following the code style guidelines
-4. Add tests for new functionality
-5. Run `make check` to verify lint passes
-6. Run `pytest tests/` to verify all tests pass
-7. Submit a pull request
-
----
-
-## Credits
-
-- [Antigravity Kit](https://github.com/vudovn/antigravity-kit) by Vudovn (MIT License)
-- [UI-UX Pro Max](https://github.com/nextlevelbuilder) by NextLevelBuilder (MIT License)
+Run `agent-bridge status` followed by `agent-bridge update`.
 
 ---
 

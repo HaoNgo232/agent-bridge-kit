@@ -1,330 +1,404 @@
+## EXECUTIVE SUMMARY
+
+Agent Bridge là một dự án Python CLI chất lượng cao với kiến trúc rõ ràng, tuân thủ nguyên tắc Open/Closed Principle thông qua hệ thống converter tự đăng ký. Codebase hiện tại có 137 test đạt, hỗ trợ 5 IDE (Cursor, Copilot, Kiro, OpenCode, Windsurf) với khả năng đồng bộ hai chiều cho 3 trong số đó. Điểm mạnh nổi bật là Central Agent Registry làm single source of truth cho 21 agent roles, hệ thống vault quản lý kiến thức đa nguồn, và plugin system khai báo hoàn toàn qua JSON. Các cải tiến gần đây tập trung vào UX (spinner, accessibility, NO_COLOR support) và mở rộng agent definitions. Tài liệu hiện tại khá đầy đủ nhưng cần cập nhật để phản ánh các tính năng mới về status dashboard, conflict resolution strategies, và pre-flight validation.
+
+---
+
 # Agent Bridge
 
-> Công cụ chuyển đổi đa năng cho kiến thức AI agent với đồng bộ hai chiều giữa định dạng `.agent/` và cấu hình nhiều IDE khác nhau.
+> Công cụ chuyển đổi đa năng cho cấu hình AI agent — đồng bộ hai chiều giữa định dạng `.agent/` chuẩn hóa và cấu hình riêng của từng IDE.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](../LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests: 137 passing](https://img.shields.io/badge/tests-137%20passing-brightgreen.svg)](#kiểm-thử)
+[![WCAG 2.1 AA](https://img.shields.io/badge/accessibility-WCAG%202.1%20AA-blue.svg)](#accessibility)
 
 ---
 
 ## Mục Lục
 
-- [Tổng Quan](#tổng-quan)
-- [Kiến Trúc](#kiến-trúc)
-- [Công Nghệ Sử Dụng](#công-nghệ-sử-dụng)
-- [Các Module Chính](#các-module-chính)
-- [Cài Đặt](#cài-đặt)
-- [Bắt Đầu Nhanh](#bắt-đầu-nhanh)
+- [Vấn Đề Giải Quyết](#vấn-đề-giải-quyết)
+- [Bắt Đầu Nhanh](#-bắt-đầu-nhanh)
+- [Kiến Trúc Hệ Thống](#kiến-trúc-hệ-thống)
 - [IDE Được Hỗ Trợ](#ide-được-hỗ-trợ)
 - [Tham Chiếu Lệnh](#tham-chiếu-lệnh)
 - [Quy Trình Đồng Bộ Hai Chiều](#quy-trình-đồng-bộ-hai-chiều)
 - [Knowledge Vaults](#knowledge-vaults)
+- [Hệ Thống Snapshot](#hệ-thống-snapshot)
 - [Tích Hợp MCP](#tích-hợp-mcp)
 - [Hệ Thống Plugin](#hệ-thống-plugin)
-- [Cấu Hình](#cấu-hình)
+- [Central Agent Registry](#central-agent-registry)
+- [Cấu Hình Chi Tiết](#cấu-hình-chi-tiết)
 - [Hướng Dẫn Phát Triển](#hướng-dẫn-phát-triển)
 - [Kiểm Thử](#kiểm-thử)
 - [Xử Lý Sự Cố](#xử-lý-sự-cố)
 - [Đóng Góp](#đóng-góp)
-- [Ghi Nhận](#ghi-nhận)
 - [Giấy Phép](#giấy-phép)
 
 ---
 
-## Tổng Quan
+## Vấn Đề Giải Quyết
 
-**Agent Bridge** giải quyết một vấn đề quan trọng trong phát triển AI đa IDE: mỗi IDE (Cursor, Copilot, Kiro, OpenCode, Windsurf) sử dụng định dạng riêng cho cấu hình AI agent. Việc duy trì kiến thức agent trên nhiều IDE đồng nghĩa với việc phải sao chép và đồng bộ thủ công các file cấu hình.
+Mỗi IDE AI (Cursor, GitHub Copilot, Kiro, OpenCode, Windsurf) sử dụng định dạng cấu hình riêng cho AI agent. Khi phát triển với nhiều IDE, bạn phải sao chép thủ công và duy trì đồng bộ giữa các file cấu hình — một quy trình dễ sai sót và tốn thời gian.
 
-Agent Bridge cung cấp một **nguồn chân lý duy nhất** (thư mục `.agent/`) và tự động chuyển đổi sang định dạng gốc của từng IDE. Nó cũng hỗ trợ **chuyển đổi ngược** — nắm bắt các thay đổi trong cấu hình IDE trở lại `.agent/`, cho phép đồng bộ hai chiều thực sự.
-
-### Tính Năng Chính
-
-- **Chuyển Đổi Xuôi**: `.agent/` → định dạng IDE cụ thể (hỗ trợ 5 IDE)
-- **Nắm Bắt Ngược**: Cấu hình IDE → `.agent/` (Cursor, Kiro, Copilot)
-- **Quản Lý Snapshot**: Lưu, khôi phục và quản lý phiên bản trạng thái `.agent/`
-- **Knowledge Vaults**: Đăng ký git repo hoặc thư mục local làm nguồn kiến thức agent
-- **Tích Hợp MCP**: Phân phối cấu hình Model Context Protocol
-- **Hệ Thống Plugin**: Cài đặt skill bên ngoài theo khai báo qua `plugins.json`
-- **TUI Tương Tác**: Trình hướng dẫn thiết lập dựa trên Questionary
-- **Giải Quyết Xung Đột**: Chiến lược `ide_wins` hoặc `agent_wins`
-
----
-
-## Kiến Trúc
+Agent Bridge giải quyết vấn đề này bằng cách cung cấp một **nguồn chân lý duy nhất** (thư mục `.agent/`) và tự động chuyển đổi sang định dạng gốc của từng IDE. Quan trọng hơn, nó hỗ trợ **đồng bộ ngược** — nắm bắt thay đổi bạn thực hiện trực tiếp trong IDE và đưa chúng trở lại `.agent/`.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     CLI (cli.py)                     │
-│           Bộ điều phối nhẹ / argparse                │
-├──────────┬──────────┬───────────┬───────────────────┤
-│ TUI      │ Services │ Vault     │ Utils             │
-│ (tui.py) │          │           │                   │
-│          │ init     │ manager   │ colors, display   │
-│          │ sync     │ merger    │ filesystem, mcp   │
-│          │ capture  │ sources   │                   │
-│          │ snapshot │           │                   │
-│          │ status   │           │                   │
-├──────────┴──────────┴───────────┴───────────────────┤
-│                   Tầng Core                          │
-│  types.py │ agent_registry.py │ converter.py        │
-│  frontmatter.py │ plugins.py                        │
-├─────────────────────────────────────────────────────┤
-│                  Converters                           │
-│  cursor.py  │ copilot.py │ kiro.py                  │
-│  opencode.py │ windsurf.py                          │
-│  _cursor_impl.py │ _copilot_impl.py │ _kiro_impl.py│
-│  _opencode_impl.py │ _windsurf_impl.py              │
-└─────────────────────────────────────────────────────┘
+
+.agent/ (nguồn chân lý)
+├── agents/_.md
+├── skills/_/SKILL.md
+├── workflows/_.md
+├── rules/_.md
+└── mcp_config.json
+│
+▼ agent-bridge init --all
+┌─────────────────────────────────────┐
+│ .cursor/ .github/ .kiro/ │
+│ .opencode/ .windsurf/ │
+└─────────────────────────────────────┘
+│
+▼ agent-bridge capture --all
+.agent/ (cập nhật ngược)
+
 ```
 
-### Quyết Định Thiết Kế
+**Tính năng chính:**
 
-1. **Converter Tự Đăng Ký**: Mỗi converter tự đăng ký với `ConverterRegistry` khi import. Thêm IDE mới không cần thay đổi gì ở services hay CLI — chỉ cần tạo hai file (`converters/my_ide.py` + `converters/_my_ide_impl.py`).
-
-2. **Agent Registry Tập Trung**: `core/agent_registry.py` là nguồn chân lý duy nhất cho vai trò và khả năng của agent. Tất cả converter đều dẫn xuất cấu hình IDE cụ thể từ registry này.
-
-3. **Tách Biệt Tầng Service**: Logic nghiệp vụ nằm trong `services/`, hoàn toàn tách rời khỏi phân tích CLI. Điều này cho phép kiểm thử mà không cần mô phỏng lệnh CLI.
-
-4. **Mẫu Strategy cho Vaults**: `vault/sources.py` triển khai `GitSource`, `LocalSource` và `BuiltinSource`, mỗi nguồn tự biết cách đồng bộ.
-
-5. **Module Frontmatter Chung**: `core/frontmatter.py` cung cấp phân tích YAML frontmatter thống nhất cho tất cả converter, loại bỏ các mẫu regex trùng lặp.
-
----
-
-## Công Nghệ Sử Dụng
-
-| Thành phần         | Công nghệ        | Mục đích                      |
-| ------------------ | ---------------- | ----------------------------- |
-| Ngôn ngữ           | Python 3.8+      | Tương thích đa nền tảng       |
-| Framework CLI      | argparse         | Phân tích tham số nhẹ         |
-| UI tương tác       | questionary 2.0+ | Prompt checkbox/select        |
-| Đầu ra Rich        | rich 13.0+       | Đầu ra terminal có màu        |
-| Phân tích cấu hình | PyYAML           | Xử lý YAML frontmatter        |
-| Lint               | Ruff 0.1+        | Linter/formatter Python nhanh |
-| Kiểm tra kiểu      | mypy 1.0+        | Phân tích kiểu tĩnh           |
-| Kiểm thử           | pytest 8.3+      | Framework kiểm thử            |
+- **Chuyển đổi xuôi** `.agent/` → 5 định dạng IDE cụ thể
+- **Nắm bắt ngược** từ IDE → `.agent/` (Cursor, Kiro, Copilot)
+- **Quản lý snapshot** lưu trữ và khôi phục trạng thái `.agent/`
+- **Knowledge vaults** đăng ký nhiều nguồn kiến thức (git repo, thư mục local, builtin)
+- **Tích hợp MCP** phân phối Model Context Protocol configuration
+- **Plugin system** cài đặt skill bên ngoài qua khai báo JSON
+- **TUI tương tác** với questionary, hỗ trợ adaptive colors
+- **Accessibility** WCAG 2.1 AA, NO_COLOR support, screen reader friendly
 
 ---
 
-## Các Module Chính
+## 🚀 Bắt Đầu Nhanh
 
-### Core (`src/agent_bridge/core/`)
-
-| File                | Mục đích                                                                                                                          |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `types.py`          | Cấu trúc dữ liệu dùng chung: `AgentRole`, `ConversionResult`, `CapturedFile`, `SnapshotInfo`, `IDEFormat`, enum `CaptureStatus`   |
-| `agent_registry.py` | Định nghĩa vai trò agent tập trung với khả năng (đọc/ghi/thực thi/tìm kiếm), lệnh cho phép, đường dẫn, subagents, handoff targets |
-| `converter.py`      | ABC `BaseConverter` và `ConverterRegistry` — điểm mở rộng cho IDE mới                                                             |
-| `frontmatter.py`    | `FrontmatterParser` cho trích xuất, tạo và loại bỏ YAML/MDC frontmatter                                                           |
-| `plugins.py`        | Hệ thống plugin skill bên ngoài theo khai báo — đọc `.agent/plugins.json`, cài đặt tiên quyết, chạy lệnh IDE cụ thể               |
-
-### Converters (`src/agent_bridge/converters/`)
-
-Mỗi converter gồm một module public (ví dụ `cursor.py`) chứa lớp con `BaseConverter`, và một module implementation private (ví dụ `_cursor_impl.py`) chứa logic chuyển đổi.
-
-| IDE            | Module Public | Module Impl         | Thư mục đầu ra | Hỗ trợ Capture |
-| -------------- | ------------- | ------------------- | -------------- | -------------- |
-| Cursor AI      | `cursor.py`   | `_cursor_impl.py`   | `.cursor/`     | Có             |
-| GitHub Copilot | `copilot.py`  | `_copilot_impl.py`  | `.github/`     | Có             |
-| Kiro CLI       | `kiro.py`     | `_kiro_impl.py`     | `.kiro/`       | Có             |
-| OpenCode       | `opencode.py` | `_opencode_impl.py` | `.opencode/`   | Không          |
-| Windsurf       | `windsurf.py` | `_windsurf_impl.py` | `.windsurf/`   | Không          |
-
-### Services (`src/agent_bridge/services/`)
-
-| File                  | Mục đích                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `init_service.py`     | `run_init()` — chuẩn bị `.agent/`, chạy converters, cài MCP, ghi `.bridge-meta.json`          |
-| `sync_service.py`     | `run_update()` — đồng bộ vaults, merge vào project, tự động làm mới cấu hình IDE đã phát hiện |
-| `capture_service.py`  | `scan_for_captures()` / `execute_capture()` — đồng bộ ngược thay đổi IDE về `.agent/`         |
-| `snapshot_service.py` | Thao tác CRUD cho snapshot `.agent/` với theo dõi manifest                                    |
-| `status_service.py`   | `collect_status()` — thu thập dữ liệu trạng thái dự án                                        |
-| `status_display.py`   | `display_status()` — đầu ra terminal có định dạng cho status                                  |
-
-### Vault (`src/agent_bridge/vault/`)
-
-| File         | Mục đích                                                                                |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `manager.py` | `VaultManager` — registry, điều phối đồng bộ, điều phối merge                           |
-| `sources.py` | `GitSource`, `LocalSource`, `BuiltinSource` — mẫu strategy                              |
-| `merger.py`  | `merge_source_into_project()` với chiến lược `PROJECT_WINS`, `VAULT_WINS`, `VAULT_ONLY` |
-
----
-
-## Cài Đặt
-
-### Từ GitHub (khuyến nghị)
+### Cài đặt
 
 ```bash
+# Từ GitHub (khuyến nghị)
 pipx install git+https://github.com/HaoNgo232/agent-bridge
-```
 
-### Từ mã nguồn (phát triển)
-
-```bash
+# Từ mã nguồn (phát triển)
 git clone https://github.com/HaoNgo232/agent-bridge.git
 cd agent-bridge
 pip install -e ".[dev]"
+
+# Hoặc dùng make
+make setup
 ```
 
-### Script thiết lập nhanh
+**Yêu cầu:** Python 3.8+, Git (cho vault sync), Node.js/npm (tùy chọn, cho plugin)
 
-```bash
-make setup  # Kiểm tra môi trường, cài dependencies, chạy lint
-```
-
-### Yêu cầu
-
-- Python 3.8 trở lên
-- Git (để đồng bộ vault)
-- Node.js/npm (tùy chọn, cho plugin skill bên ngoài)
-
----
-
-## Bắt Đầu Nhanh
+### Sử dụng cơ bản (< 2 phút)
 
 ```bash
 cd your-project
 
-# Thiết lập tương tác (khuyến nghị)
+# Bước 1: Khởi tạo — TUI tương tác sẽ hướng dẫn bạn
 agent-bridge init
 
-# Hoặc chỉ định IDE trực tiếp
-agent-bridge init --cursor
-agent-bridge init --kiro
+# Hoặc chỉ định trực tiếp
+agent-bridge init --cursor --kiro
+
+# Hoặc tất cả IDE cùng lúc
 agent-bridge init --all
 
-# Kiểm tra trạng thái dự án
+# Bước 2: Xác minh
 agent-bridge status
 
-# Kéo kiến thức mới nhất và làm mới cấu hình
-agent-bridge update
+# Bước 3: Sau khi chỉnh sửa trong IDE, đồng bộ ngược
+agent-bridge capture --cursor
 ```
+
+Sau khi chạy `agent-bridge init --cursor`, cấu trúc dự án sẽ trông như thế này:
+
+```
+your-project/
+├── .agent/                    # Nguồn chân lý (bạn tạo hoặc từ vault)
+│   ├── agents/orchestrator.md
+│   ├── skills/clean-code/SKILL.md
+│   ├── workflows/plan.md
+│   ├── rules/global.md
+│   ├── mcp_config.json
+│   └── .bridge-meta.json      # Tự động tạo, theo dõi file đã generate
+├── .cursor/                   # Tự động tạo bởi Agent Bridge
+│   ├── agents/orchestrator.md
+│   ├── rules/clean-code.mdc
+│   ├── skills/plan/SKILL.md
+│   └── mcp.json
+└── ... (code dự án của bạn)
+```
+
+---
+
+## Kiến Trúc Hệ Thống
+
+### Tổng quan phân lớp
+
+```mermaid
+graph TB
+    CLI["CLI (cli.py)<br/>Thin dispatcher / argparse"]
+    TUI["TUI (tui.py)<br/>Interactive prompts / questionary"]
+
+    subgraph Services["Services Layer — Business Logic"]
+        INIT["init_service.py<br/>Chuẩn bị .agent/, chạy converters"]
+        SYNC["sync_service.py<br/>Sync vaults, merge, refresh IDE"]
+        CAPTURE["capture_service.py<br/>Reverse-sync IDE → .agent/"]
+        SNAPSHOT["snapshot_service.py<br/>CRUD snapshots"]
+        STATUS["status_service.py<br/>+ status_display.py"]
+    end
+
+    subgraph Core["Core Layer — Types & Registry"]
+        TYPES["types.py<br/>AgentRole, ConversionResult, etc."]
+        REGISTRY["agent_registry.py<br/>21 agent roles (SSoT)"]
+        CONVERTER["converter.py<br/>BaseConverter ABC + Registry"]
+        FM["frontmatter.py<br/>YAML/MDC parser"]
+        PLUGINS["plugins.py<br/>External skill plugins"]
+    end
+
+    subgraph Converters["Converters — Self-Registering"]
+        CURSOR["cursor.py + _cursor_impl.py"]
+        COPILOT["copilot.py + _copilot_impl.py"]
+        KIRO["kiro.py + _kiro_impl.py"]
+        OPENCODE["opencode.py + _opencode_impl.py"]
+        WINDSURF["windsurf.py + _windsurf_impl.py"]
+    end
+
+    subgraph Vault["Vault Layer — Knowledge Management"]
+        MANAGER["manager.py<br/>Registry + sync orchestration"]
+        SOURCES["sources.py<br/>GitSource, LocalSource, BuiltinSource"]
+        MERGER["merger.py<br/>PROJECT_WINS / VAULT_WINS / VAULT_ONLY"]
+    end
+
+    CLI --> TUI
+    CLI --> Services
+    Services --> Core
+    Services --> Vault
+    Converters --> Core
+    INIT --> CONVERTER
+    CAPTURE --> CONVERTER
+    SYNC --> Vault
+```
+
+### Quyết định thiết kế quan trọng
+
+**1. Self-Registering Converters (Open/Closed Principle)**
+
+Mỗi converter tự đăng ký vào `ConverterRegistry` tại thời điểm import. Khi Python load `src/agent_bridge/converters/__init__.py` (dòng 7-11), nó import tất cả converter modules, kích hoạt registration. Thêm IDE mới chỉ cần tạo 2 file — không cần sửa bất kỳ service, CLI, hay utils nào.
+
+```python
+# src/agent_bridge/converters/__init__.py (dòng 7-11)
+from . import copilot   # noqa: F401 — triggers CopilotConverter registration
+from . import cursor     # noqa: F401
+from . import kiro       # noqa: F401
+from . import opencode   # noqa: F401
+from . import windsurf   # noqa: F401
+```
+
+Mỗi converter kết thúc bằng:
+
+```python
+# src/agent_bridge/converters/cursor.py (dòng cuối)
+converter_registry.register(CursorConverter)
+```
+
+**2. Central Agent Registry — Single Source of Truth**
+
+`src/agent_bridge/core/agent_registry.py` định nghĩa 21 agent roles với đầy đủ capabilities (read/write/execute/search), allowed commands, allowed paths, subagents, và handoff targets. Tất cả converters đều truy vấn registry này thay vì duy trì bản đồ riêng.
+
+```python
+# src/agent_bridge/core/agent_registry.py (dòng 18-30)
+AgentRole(
+    slug="orchestrator", name="Orchestrator",
+    description="High-level coordinator for complex, multi-step tasks",
+    can_read=True, can_write=False, can_execute=False, can_search=True,
+    can_delegate=True, delegatable_agents=["*"],
+    category="primary",
+    subagents=["*"],
+    handoff_targets=["frontend-specialist", "backend-specialist", ...],
+)
+```
+
+Lợi ích: Thêm agent role mới một lần, tất cả 5 converters tự động nhận. Hàm `validate_agent_references()` kiểm tra tính toàn vẹn tham chiếu.
+
+**3. Bridge Meta Tracking**
+
+Khi `agent-bridge init` chạy, `init_service._write_bridge_meta()` ghi `.agent/.bridge-meta.json` ánh xạ mỗi file IDE đã generate về file `.agent/` nguồn. Service capture dùng metadata này để phân biệt file mới (user tạo trong IDE), file đã sửa (mtime > generated_at), và file không đổi.
+
+**4. Service Layer Separation**
+
+Toàn bộ business logic nằm trong `services/`, hoàn toàn tách rời khỏi CLI parsing và TUI prompts. Tests gọi services trực tiếp, không cần mô phỏng CLI invocation.
+
+**5. Strategy Pattern cho Vaults**
+
+`vault/sources.py` triển khai 3 strategies: `GitSource` (clone/pull repo), `LocalSource` (symlink-free reference), `BuiltinSource` (vault starter đi kèm package). Mỗi source tự biết cách sync và validate.
 
 ---
 
 ## IDE Được Hỗ Trợ
 
-| IDE            | Thư mục đầu ra | Định dạng                        | Trạng thái | Capture |
-| -------------- | -------------- | -------------------------------- | ---------- | ------- |
-| Cursor AI      | `.cursor/`     | Markdown + MDC rules             | Beta       | Có      |
-| GitHub Copilot | `.github/`     | YAML frontmatter markdown        | Beta       | Có      |
-| Kiro CLI       | `.kiro/`       | JSON agents + markdown prompts   | Beta       | Có      |
-| OpenCode       | `.opencode/`   | YAML frontmatter markdown + JSON | Beta       | Không   |
-| Windsurf       | `.windsurf/`   | Markdown với chế độ kích hoạt    | Beta       | Không   |
+| IDE            | Thư mục đầu ra | Định dạng output               | Capture ngược | Trạng thái |
+| -------------- | -------------- | ------------------------------ | ------------- | ---------- |
+| Cursor AI      | `.cursor/`     | Markdown + MDC rules           | Có            | Beta       |
+| GitHub Copilot | `.github/`     | YAML frontmatter markdown      | Có            | Beta       |
+| Kiro CLI       | `.kiro/`       | JSON agents + markdown prompts | Có            | Beta       |
+| OpenCode       | `.opencode/`   | YAML frontmatter + JSON config | Không         | Beta       |
+| Windsurf       | `.windsurf/`   | Markdown với activation modes  | Không         | Beta       |
 
-### Chi Tiết Định Dạng
+### Chi tiết định dạng từng IDE
 
-**Cursor**: Agents đi vào `.cursor/agents/*.md` với frontmatter name/description. Skills trở thành MDC rules (`.cursor/rules/*.mdc` với frontmatter `alwaysApply`/`globs`) hoặc slash-command skills (`.cursor/skills/*/SKILL.md`). Workflows trở thành skills.
+**Cursor** (`src/agent_bridge/converters/_cursor_impl.py`): Agents → `.cursor/agents/*.md` với name/description frontmatter. Skills được phân loại thành MDC rules (`.cursor/rules/*.mdc` với `alwaysApply`/`globs` frontmatter cho auto-attach) hoặc slash-command skills (`.cursor/skills/*/SKILL.md` cho on-demand). Phân loại dựa trên `MDC_RULES_CONFIG` hardcoded map và `core/skill_metadata.py` registry. Workflows → skills. Tự động tạo `project-instructions.mdc` từ AGENTS.md nếu có.
 
-**Copilot**: Agents có YAML frontmatter đầy đủ (name, description, tools, agents, handoffs). Skills đi vào `.github/skills/*/SKILL.md`. Workflows trở thành `.github/prompts/*.prompt.md`. Rules trở thành `.github/instructions/*.instructions.md`.
+**Copilot** (`src/agent_bridge/converters/_copilot_impl.py`): Agents → `.github/agents/*.agent.md` với full YAML frontmatter (name, description, tools, agents, handoffs). Tools được derive từ AgentRole capabilities qua `_role_to_copilot_tools()`. Subagents và handoff prompts lấy từ Central Agent Registry. Skills → `.github/skills/*/SKILL.md`. Workflows → `.github/prompts/*.prompt.md`. Rules → `.github/instructions/*.instructions.md`. Body agent bị truncate ở 30K chars theo giới hạn Copilot.
 
-**Kiro**: Agents trở thành file JSON với tools, allowedTools, toolsSettings, hooks và resources. Skills được sao chép trực tiếp. Workflows trở thành prompts với cú pháp template Kiro. Rules đi vào steering với frontmatter `inclusion: always`.
+**Kiro** (`src/agent_bridge/converters/_kiro_impl.py`): Agents → `.kiro/agents/*.json` theo Kiro CLI official spec — bao gồm tools, allowedTools (auto-approve), toolsSettings (allowedCommands, allowedPaths), hooks (agentSpawn lifecycle), resources (file:// URIs), và includeMcpJson. MCP server names được auto-trust qua `@server_name` pattern. Skills → copy trực tiếp. Workflows → `.kiro/prompts/*.md` với Kiro template syntax (`{{args}}`). Rules → `.kiro/steering/*.md` với `inclusion: always` frontmatter.
 
-**OpenCode**: Agents có frontmatter mode (primary/subagent), tools và permission. Workflows trở thành commands. Skills được sao chép trực tiếp.
+**OpenCode** (`src/agent_bridge/converters/_opencode_impl.py`): Agents → `.opencode/agents/*.md` với frontmatter mode (primary/subagent), tools, permission. MCP config được embed trực tiếp vào `opencode.json` thay vì file riêng — đây là hành vi đặc thù của OpenCode. Workflows → `.opencode/commands/*.md`. Skills → copy trực tiếp. Tự tạo `opencode.json` với schema, instructions globs, default_agent.
 
-**Windsurf**: Mọi thứ trở thành rules với chế độ kích hoạt (Always On, Glob, Model Decision, Manual). Workflows được trích xuất steps. File `.windsurfrules` gốc cũng được tạo.
+**Windsurf** (`src/agent_bridge/converters/_windsurf_impl.py`): Tất cả (agents, skills, workflows) → `.windsurf/rules/*.md` với activation modes (Always On, Glob, Model Decision, Manual). Skills được phân loại qua `SKILL_ACTIVATION_MAP`. Workflows extract steps từ markdown. Per-rule limit 12000 chars, tự truncate. Tạo legacy `.windsurfrules` root file từ always-on skills + project instructions.
 
 ---
 
 ## Tham Chiếu Lệnh
 
-### `agent-bridge init`
-
-Thiết lập cấu hình agent cho dự án.
+### `agent-bridge init` — Khởi tạo cấu hình
 
 ```bash
-agent-bridge init                    # TUI tương tác
+agent-bridge init                    # TUI tương tác (khuyến nghị)
 agent-bridge init --cursor           # Chỉ Cursor
 agent-bridge init --kiro --copilot   # Nhiều IDE
-agent-bridge init --all              # Tất cả IDE
-agent-bridge init --from my-snapshot # Từ snapshot đã lưu
-agent-bridge init --force            # Ghi đè bắt buộc
+agent-bridge init --all              # Tất cả 5 IDE
+agent-bridge init --from my-snapshot # Khởi tạo từ snapshot đã lưu
+agent-bridge init --force            # Ghi đè không hỏi
 agent-bridge init --no-interactive   # Bỏ qua TUI
 ```
 
-### `agent-bridge update`
+**Pre-flight validation** (`src/agent_bridge/cli.py`, hàm `_preflight_validation`, dòng 134-148): Khi chạy ở chế độ CLI (không TUI), hệ thống kiểm tra xem cấu hình IDE đã tồn tại chưa trước khi thực hiện conversion. Nếu tồn tại mà không có `--force`, báo lỗi actionable thay vì ghi đè âm thầm.
 
-Kéo kiến thức mới nhất từ vaults và làm mới cấu hình IDE hiện có.
+**Luồng xử lý** (`src/agent_bridge/services/init_service.py`, hàm `run_init`):
 
-```bash
-agent-bridge update
-agent-bridge update --target .agent
-```
+1. Xử lý nguồn dữ liệu: `project` (dùng `.agent/` local), `vault` (fetch từ vault), `merge` (vault + project, project wins), `snapshot` (từ snapshot đã lưu)
+2. Chạy converter cho từng IDE đã chọn
+3. Cài đặt MCP configuration
+4. Ghi `.bridge-meta.json` để tracking
 
-### `agent-bridge capture`
-
-Đồng bộ ngược: nắm bắt thay đổi từ cấu hình IDE về `.agent/`.
+### `agent-bridge capture` — Đồng bộ ngược
 
 ```bash
-agent-bridge capture                              # Tương tác
-agent-bridge capture --cursor                     # Chỉ Cursor
-agent-bridge capture --all                        # Tất cả IDE
+agent-bridge capture                              # TUI tương tác
+agent-bridge capture --cursor                     # Chỉ từ Cursor
+agent-bridge capture --all                        # Từ tất cả IDE hỗ trợ
 agent-bridge capture --strategy ide_wins          # Thay đổi IDE thắng
-agent-bridge capture --strategy agent_wins        # Bỏ qua không đổi
-agent-bridge capture --dry-run                    # Chỉ xem trước
+agent-bridge capture --strategy agent_wins        # Giữ .agent/ hiện tại
+agent-bridge capture --strategy smart             # Tự động quyết định (mặc định)
+agent-bridge capture --dry-run                    # Chỉ xem trước, không ghi
 ```
 
-### `agent-bridge snapshot`
+**Smart strategy** (`src/agent_bridge/services/capture_service.py`, hàm `_auto_determine_strategy`, dòng 123-131): Tự phân tích file status để chọn strategy tối ưu. Nếu có nhiều file NEW hơn MODIFIED → `ide_wins`. Trường hợp khác → bỏ qua UNCHANGED, capture MODIFIED và NEW.
 
-Lưu và quản lý snapshot `.agent/`.
+**Capture preview** (`src/agent_bridge/services/capture_service.py`, hàm `_show_capture_preview`, dòng 134-160): Trước khi ghi, hiển thị diff summary (số dòng thêm/xóa) và yêu cầu xác nhận.
+
+### `agent-bridge update` — Sync và refresh
 
 ```bash
-agent-bridge snapshot save my-snapshot -d "Mô tả"
-agent-bridge snapshot save tagged -t "framework:flutter" -t "lang:dart"
-agent-bridge snapshot list
-agent-bridge snapshot info my-snapshot
-agent-bridge snapshot restore my-snapshot
-agent-bridge snapshot delete my-snapshot
+agent-bridge update                  # Sync vaults + refresh IDE configs
+agent-bridge update --target .agent  # Chỉ định thư mục target
 ```
 
-### `agent-bridge status`
+**Luồng xử lý** (`src/agent_bridge/services/sync_service.py`, hàm `run_update`):
 
-Hiển thị bảng điều khiển dự án.
+1. Auto-snapshot safety net — lưu `auto-pre-update` trước khi thay đổi
+2. Sync tất cả vault sources
+3. Merge vào project `.agent/` (PROJECT_WINS strategy)
+4. Copy config files (mcp_config.json) nếu chưa có
+5. Auto-refresh IDE configs đã phát hiện trong project
+
+**Error diagnostics**: Khi tất cả vault sync thất bại, phân tích loại lỗi (network, authentication) và đề xuất recovery options cụ thể.
+
+### `agent-bridge snapshot` — Quản lý phiên bản
 
 ```bash
-agent-bridge status          # Đầu ra có định dạng
-agent-bridge status --json   # JSON cho máy đọc
+agent-bridge snapshot save my-snap -d "Mô tả"           # Lưu
+agent-bridge snapshot save tagged -t "lang:dart"          # Lưu với tags
+agent-bridge snapshot list                                # Liệt kê (mới nhất trước)
+agent-bridge snapshot info my-snap                        # Chi tiết
+agent-bridge snapshot restore my-snap                     # Khôi phục
+agent-bridge snapshot delete my-snap                      # Xóa (có xác nhận)
 ```
 
-### `agent-bridge vault`
+Snapshot lưu tại `~/.config/agent-bridge/snapshots/<name>/` với atomic write (ghi temp dir → rename). Lưu lại cùng tên sẽ tăng version tự động.
 
-Quản lý knowledge vaults.
+### `agent-bridge status` — Bảng điều khiển
 
 ```bash
-agent-bridge vault list
-agent-bridge vault add my-team git@github.com:myorg/ai-agents.git
-agent-bridge vault add local-agents /path/to/agents -p 50
-agent-bridge vault remove my-team
-agent-bridge vault sync
-agent-bridge vault sync --name my-team
+agent-bridge status          # Dashboard có định dạng
+agent-bridge status --json   # JSON cho scripts/CI
 ```
 
-### `agent-bridge mcp`
+Output mẫu:
 
-Cài đặt cấu hình MCP.
+```
+📊 Agent Bridge Dashboard
+📍 Project: /home/user/my-project
+
+📈 Summary: 21 agents • 35 skills • 1 vaults • 3 IDEs
+
+📦 Source:  .agent/ (58 items — agents: 21, skills: 35, workflows: 1, rules: 1)
+🔗 Vaults (1 active):
+   ✓ Synced (1): antigravity-kit
+🖥  IDEs (3 initialized):
+   ✓ cursor     .cursor/        (45 files)
+   ⚠ kiro       .kiro/          (120 files) (stale — run 'agent-bridge update')
+   ✓ copilot    .github/        (25 files)
+   ✗ Not initialized: opencode, windsurf
+🔌 MCP: .agent/mcp_config.json (2 servers: github, filesystem)
+
+🧭 Recommended next steps:
+  • Run 'agent-bridge update' to refresh IDE configs
+```
+
+### `agent-bridge vault` — Quản lý knowledge vaults
 
 ```bash
-agent-bridge mcp --all
-agent-bridge mcp --cursor --kiro
-agent-bridge mcp --force
+agent-bridge vault list                                     # Liệt kê
+agent-bridge vault add my-team git@github.com:org/repo.git  # Thêm Git
+agent-bridge vault add local /path/to/agents -p 50          # Thêm local (priority 50)
+agent-bridge vault remove my-team                           # Xóa (có xác nhận)
+agent-bridge vault sync                                     # Sync tất cả
+agent-bridge vault sync --name my-team                      # Sync một vault
 ```
 
-### `agent-bridge clean`
-
-Xóa cấu hình IDE đã tạo.
+### `agent-bridge mcp` — Cài MCP configuration
 
 ```bash
-agent-bridge clean --all
-agent-bridge clean --cursor
+agent-bridge mcp --all               # Tất cả IDE
+agent-bridge mcp --cursor --kiro     # IDE cụ thể
+agent-bridge mcp --force             # Ghi đè
 ```
 
-### `agent-bridge list`
+### `agent-bridge clean` — Xóa cấu hình IDE
 
-Liệt kê tất cả định dạng IDE được hỗ trợ.
+```bash
+agent-bridge clean --all             # Xóa tất cả (có preview + xác nhận)
+agent-bridge clean --cursor          # Xóa Cursor
+agent-bridge clean --cursor --force  # Không hỏi
+```
 
-### Chuyển Đổi Trực Tiếp
+**Deletion preview**: Trước khi xóa, liệt kê tối đa 8 file sẽ bị xóa, hiển thị tổng số file, và yêu cầu xác nhận qua questionary.
+
+### `agent-bridge list` — IDE formats
+
+```bash
+agent-bridge list    # Liệt kê 5 IDE formats với status
+```
+
+### Chuyển đổi trực tiếp (backward compat)
 
 ```bash
 agent-bridge cursor --source .agent
@@ -336,101 +410,159 @@ agent-bridge copilot
 
 ## Quy Trình Đồng Bộ Hai Chiều
 
-```bash
-# 1. Khởi tạo cấu hình IDE từ .agent/
-agent-bridge init --cursor
+```mermaid
+sequenceDiagram
+    participant A as .agent/ (Source)
+    participant AB as Agent Bridge
+    participant IDE as IDE Config
+    participant S as Snapshot
 
-# 2. Làm việc trong Cursor IDE, thay đổi file agent
-#    ... chỉnh sửa .cursor/agents/orchestrator.md ...
+    Note over A,IDE: Forward Conversion
+    A->>AB: agent-bridge init --cursor
+    AB->>IDE: Generate .cursor/ files
+    AB->>A: Write .bridge-meta.json
 
-# 3. Nắm bắt thay đổi về .agent/
-agent-bridge capture --ide cursor
+    Note over A,IDE: Work in IDE
+    IDE->>IDE: User edits .cursor/agents/orchestrator.md
 
-# 4. Lưu snapshot trước thay đổi lớn
-agent-bridge snapshot save "before-refactor" -d "Trạng thái ổn định"
+    Note over A,IDE: Reverse Capture
+    IDE->>AB: agent-bridge capture --cursor
+    AB->>AB: Compare mtime vs generated_at
+    AB->>A: Write changes back to .agent/
 
-# 5. Thực hiện thay đổi thử nghiệm
-#    ... chỉnh sửa file .agent/ ...
+    Note over A,S: Snapshot Management
+    A->>AB: agent-bridge snapshot save "stable"
+    AB->>S: Copy .agent/ → snapshots/stable/
 
-# 6. Khôi phục nếu cần
-agent-bridge snapshot restore "before-refactor"
-
-# 7. Đẩy sang IDE khác
-agent-bridge init --kiro
+    Note over A,S: Restore if needed
+    S->>AB: agent-bridge snapshot restore "stable"
+    AB->>A: Replace .agent/ content
 ```
 
-### Cơ Chế Bridge Meta
+### Cơ chế Bridge Meta
 
-Khi `agent-bridge init` chạy, nó ghi `.agent/.bridge-meta.json` chứa:
+`.agent/.bridge-meta.json` được tạo sau mỗi lần `init`, chứa:
 
-- `generated_at`: Thời gian tạo
-- `generated_for`: Danh sách tên IDE
-- `file_map`: Ánh xạ đường dẫn file IDE → đường dẫn file `.agent/`
+```json
+{
+  "generated_at": "2026-03-26T14:12:36Z",
+  "generated_for": ["cursor", "kiro"],
+  "file_map": {
+    ".cursor/agents/orchestrator.md": ".agent/agents/orchestrator.md",
+    ".cursor/rules/clean-code.mdc": ".agent/skills/clean-code/SKILL.md",
+    ".kiro/agents/orchestrator.json": ".agent/agents/orchestrator.md"
+  }
+}
+```
 
-Service capture sử dụng metadata này để xác định trạng thái file:
+Capture service dùng `file_map` và `generated_at` để phân loại:
 
-- **new**: File không có trong `file_map` (người dùng tạo trong IDE)
-- **modified**: File có trong `file_map` với mtime > `generated_at`
-- **unchanged**: File có trong `file_map`, không bị sửa đổi kể từ khi tạo
+- **new**: File không có trong `file_map` (user tạo mới trong IDE)
+- **modified**: File có trong `file_map` và `mtime > generated_at`
+- **unchanged**: File có trong `file_map`, không bị sửa
 
 ---
 
 ## Knowledge Vaults
 
-Vault là bất kỳ thư mục nào (git repo hoặc đường dẫn local) chứa cấu trúc `.agent/`:
+Vault là bất kỳ thư mục nào chứa cấu trúc `.agent/`:
 
 ```
-.agent/
-├── agents/          # File định nghĩa agent (*.md)
-├── skills/          # Thư mục skill với SKILL.md
-├── workflows/       # Template workflow (*.md)
-├── rules/           # File rules (*.md)
-├── mcp_config.json  # Cấu hình MCP server
-└── plugins.json     # Khai báo plugin bên ngoài
+vault-repo/
+└── .agent/
+    ├── agents/*.md
+    ├── skills/*/SKILL.md
+    ├── workflows/*.md
+    ├── rules/*.md
+    ├── mcp_config.json
+    └── plugins.json
 ```
 
-### Vault Mặc Định
+### Loại vault
 
-Agent Bridge đi kèm vault khởi đầu tối giản hoạt động offline không cần dependency bên ngoài. Nó có ưu tiên thấp nhất (999) và đóng vai trò dự phòng.
+| Loại    | Class           | Mô tả                                      |
+| ------- | --------------- | ------------------------------------------ |
+| Git     | `GitSource`     | Clone/pull từ remote repository            |
+| Local   | `LocalSource`   | Reference trực tiếp từ đường dẫn local     |
+| Builtin | `BuiltinSource` | Vault starter đi kèm package, priority 999 |
 
-### Ưu Tiên Vault
+### Ưu tiên merge
 
-Khi nhiều vault được đăng ký, file được merge với:
+Khi nhiều vault cùng tồn tại, file được merge theo thứ tự:
 
-1. **File local của dự án** có ưu tiên cao nhất
-2. **Vault theo thứ tự ưu tiên** (số thấp hơn = ưu tiên cao hơn)
-3. Chiến lược merge có thể cấu hình: `PROJECT_WINS`, `VAULT_WINS`, `VAULT_ONLY`
+1. **File local của dự án** — ưu tiên cao nhất
+2. **Vault theo priority** — số thấp hơn = ưu tiên cao hơn
+3. Strategy cấu hình: `PROJECT_WINS` (mặc định), `VAULT_WINS`, hoặc `VAULT_ONLY`
 
-### Lưu Trữ Vault
+### Bảo mật vault
 
-Vault được lưu trong `~/.config/agent-bridge/`:
+`src/agent_bridge/vault/sources.py` (dòng 10): URL được validate qua regex `_SAFE_GIT_URL` — chỉ chấp nhận `https://`, `git@`, không cho phép URL bắt đầu bằng `-`. `src/agent_bridge/vault/merger.py` (dòng 37-42): Block symlinks từ vault sources và ngăn path traversal qua resolve + startswith check.
 
-- `vaults.json` — registry vault
-- `cache/<name>/` — nội dung vault đã cache
-- `snapshots/<name>/` — snapshot đã lưu
+### Lưu trữ
+
+```
+~/.config/agent-bridge/
+├── vaults.json                # Registry vault
+├── cache/                     # Cached vault content
+│   ├── builtin-starter/
+│   └── my-team/
+└── snapshots/                 # Saved snapshots
+    └── stable-v1/
+```
+
+---
+
+## Hệ Thống Snapshot
+
+Snapshot cung cấp version control nhẹ cho `.agent/` directory, độc lập với Git.
+
+**Tính năng:**
+
+- Atomic write: Ghi vào temp directory trước, rename khi hoàn tất — tránh corrupt nếu bị interrupt
+- Auto-versioning: Lưu cùng tên tăng version tự động, giữ `created` timestamp gốc
+- Tag support: Gắn metadata dạng key:value (vd: `framework:flutter`, `lang:dart`)
+- Content manifest: Tự động đếm agents/skills/workflows/rules trong snapshot
+
+**Lifecycle flow:**
+
+```bash
+# 1. Lưu trạng thái ổn định
+agent-bridge snapshot save "pre-refactor" -d "Trước khi tái cấu trúc"
+
+# 2. Thử nghiệm thay đổi...
+
+# 3. Nếu hỏng, khôi phục
+agent-bridge snapshot restore "pre-refactor"
+
+# 4. Auto-snapshot khi update
+# run_update() tự lưu "auto-pre-update" trước khi merge vault
+```
 
 ---
 
 ## Tích Hợp MCP
 
-Agent Bridge phân phối cấu hình MCP (Model Context Protocol) từ `.agent/mcp_config.json` đến vị trí mong đợi của từng IDE với chuyển đổi định dạng:
+Agent Bridge phân phối MCP (Model Context Protocol) configuration từ `.agent/mcp_config.json` sang vị trí và format riêng của từng IDE:
 
-| IDE      | Đường dẫn MCP                         | Định dạng Key           |
-| -------- | ------------------------------------- | ----------------------- |
-| Copilot  | `.vscode/mcp.json`                    | `{"servers": {...}}`    |
-| Cursor   | `.cursor/mcp.json`                    | `{"mcpServers": {...}}` |
-| Kiro     | `.kiro/settings/mcp.json`             | `{"mcpServers": {...}}` |
-| OpenCode | Nhúng trong `.opencode/opencode.json` | Định dạng riêng         |
-| Windsurf | `.windsurf/mcp_config.json`           | `{"mcpServers": {...}}` |
+| IDE      | Đường dẫn output                      | Key format              | Ghi chú                          |
+| -------- | ------------------------------------- | ----------------------- | -------------------------------- |
+| Copilot  | `.vscode/mcp.json`                    | `{"servers": {...}}`    | VS Code yêu cầu key `servers`    |
+| Cursor   | `.cursor/mcp.json`                    | `{"mcpServers": {...}}` | Giữ nguyên format gốc            |
+| Kiro     | `.kiro/settings/mcp.json`             | `{"mcpServers": {...}}` | Copy trực tiếp                   |
+| OpenCode | Embed trong `.opencode/opencode.json` | Custom format           | Command thành array, thêm `type` |
+| Windsurf | `.windsurf/mcp_config.json`           | `{"mcpServers": {...}}` | Giữ nguyên format gốc            |
 
-Định dạng nguồn (`.agent/mcp_config.json`):
+Transformation logic nằm trong `converter.transform_mcp_config()` của mỗi converter, được gọi qua `src/agent_bridge/utils/mcp.py` hàm `install_mcp_for_ide()`.
+
+**Format nguồn** (`.agent/mcp_config.json`):
 
 ```json
 {
   "mcpServers": {
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}" }
     }
   }
 }
@@ -440,7 +572,9 @@ Agent Bridge phân phối cấu hình MCP (Model Context Protocol) từ `.agent/
 
 ## Hệ Thống Plugin
 
-Skill bên ngoài có thể được khai báo trong `.agent/plugins.json`:
+Plugin cho phép cài đặt skill bên ngoài (npm packages, pip packages...) qua khai báo JSON, không cần viết Python code.
+
+**Khai báo** (`.agent/plugins.json`):
 
 ```json
 {
@@ -467,85 +601,174 @@ Skill bên ngoài có thể được khai báo trong `.agent/plugins.json`:
 }
 ```
 
-Plugin có các đặc điểm:
+**Đặc điểm** (`src/agent_bridge/core/plugins.py`):
 
-- **Khai báo**: Định nghĩa trong JSON, không phải Python code
-- **Theo IDE**: Mỗi IDE có lệnh cài đặt riêng
-- **Có điều kiện**: Chỉ cài khi điều kiện trigger được đáp ứng
-- **An toàn**: Hỏi người dùng trước khi cài package global (trừ khi dùng `--force`)
+- **Khai báo**: JSON thuần, không phải code — thêm plugin = sửa JSON
+- **Per-IDE**: Mỗi IDE có lệnh riêng (kiro dùng `uipro init --ai kiro`, cursor dùng `uipro init --ai cursor`)
+- **Có điều kiện**: Chỉ chạy khi `condition.file_exists` tồn tại hoặc `condition.always: true`
+- **An toàn**: Hỏi người dùng trước khi cài global package (trừ `--force`), timeout 180s
+- **Auto-detection**: `PluginRunner` kiểm tra tool đã cài chưa trước khi install prerequisite
 
 ---
 
-## Cấu Hình
+## Central Agent Registry
 
-### Môi trường
+`src/agent_bridge/core/agent_registry.py` là nguồn chân lý duy nhất cho 21 agent roles:
 
-Không cần biến môi trường cho sử dụng cơ bản. MCP servers có thể yêu cầu biến môi trường riêng (ví dụ `GITHUB_TOKEN`).
+### Phân loại agent
 
-### Cấu Trúc Dự Án
+| Category | Agents                                                              | Đặc điểm                             |
+| -------- | ------------------------------------------------------------------- | ------------------------------------ |
+| Primary  | orchestrator, frontend-specialist, backend-specialist               | can_write hoặc can_delegate          |
+| Subagent | project-planner, explorer-agent, security-auditor, test-engineer... | Specialized tasks, invoked by others |
+| Internal | code-archaeologist                                                  | hidden=True, không hiển thị cho user |
+
+### AgentRole fields
+
+```python
+@dataclass
+class AgentRole:
+    slug: str                  # "frontend-specialist"
+    name: str                  # "Frontend Specialist"
+    description: str           # Mô tả ngắn cho IDE display
+    can_read: bool             # Đọc file
+    can_write: bool            # Ghi file
+    can_execute: bool          # Chạy lệnh shell
+    can_search: bool           # Tìm kiếm code
+    can_delegate: bool         # Giao việc cho subagent
+    allowed_commands: List[str]  # ["npm *", "git status"]
+    allowed_paths: List[str]     # ["src/**", "components/**"]
+    category: str              # "primary" | "subagent" | "internal"
+    hidden: bool               # Ẩn khỏi user-facing lists
+    subagents: List[str]       # ["*"] hoặc ["backend-specialist"]
+    handoff_targets: List[str] # Agents có thể chuyển giao
+    handoff_prompts: Dict      # {target: {label, prompt}}
+    opencode_permission: Dict  # OpenCode-specific permissions
+```
+
+### Cách converter sử dụng registry
+
+Mỗi converter derive cấu hình IDE-specific từ AgentRole thay vì hardcode:
+
+```python
+# Kiro: src/agent_bridge/converters/_kiro_impl.py, hàm _role_to_kiro_config
+def _role_to_kiro_config(slug: str) -> dict:
+    role = get_agent_role(slug)
+    tools = []
+    if role.can_read: tools.append("read")
+    if role.can_write: tools.append("write")
+    if role.can_execute: tools.append("shell")
+    ...
+
+# Copilot: src/agent_bridge/converters/_copilot_impl.py, hàm _role_to_copilot_tools
+def _role_to_copilot_tools(slug: str) -> list[str]:
+    role = _get_role(slug)
+    tools = []
+    if role.can_search: tools.append("search/codebase")
+    if role.can_write: tools.append("edit/editFiles")
+    ...
+
+# OpenCode: src/agent_bridge/converters/_opencode_impl.py, hàm _role_to_opencode_config
+def _role_to_opencode_config(slug: str) -> Dict[str, Any]:
+    role = get_agent_role(slug)
+    mode = "primary" if role.category == "primary" else "subagent"
+    ...
+```
+
+### Thêm agent role mới
+
+1. Thêm `AgentRole(...)` vào `_r()` call trong `src/agent_bridge/core/agent_registry.py`
+2. Chạy `pytest tests/test_agent_registry.py` để verify references
+3. Không cần thay đổi gì ở converters — chúng tự derive từ capabilities
+
+---
+
+## Cấu Hình Chi Tiết
+
+### Cấu trúc dự án
 
 ```
 your-project/
-├── .agent/                    # Nguồn chân lý
-│   ├── agents/*.md            # Định nghĩa agent
-│   ├── skills/*/SKILL.md      # Bộ skill
-│   ├── workflows/*.md         # Template workflow
+├── .agent/                    # Nguồn chân lý — ĐƯỢC track trong Git
+│   ├── agents/*.md            # Định nghĩa agent personalities
+│   ├── skills/*/SKILL.md      # Skill packs (có thể chứa sub-files)
+│   ├── workflows/*.md         # Workflow templates
 │   ├── rules/*.md             # Rules toàn cục
-│   ├── mcp_config.json        # MCP servers
-│   ├── plugins.json           # Plugin bên ngoài
-│   └── .bridge-meta.json      # File theo dõi đã tạo
-├── .cursor/                   # Cấu hình Cursor đã tạo
-├── .github/                   # Cấu hình Copilot đã tạo
-├── .kiro/                     # Cấu hình Kiro đã tạo
-├── .opencode/                 # Cấu hình OpenCode đã tạo
-└── .windsurf/                 # Cấu hình Windsurf đã tạo
+│   ├── mcp_config.json        # MCP server configuration
+│   ├── plugins.json           # Plugin declarations
+│   └── .bridge-meta.json      # Auto-generated tracking (KHÔNG sửa tay)
+│
+├── .cursor/                   # Generated — có thể .gitignore
+├── .github/                   # Generated
+├── .kiro/                     # Generated
+├── .opencode/                 # Generated
+└── .windsurf/                 # Generated
 ```
 
-### Cấu Hình Toàn Cục
+### Biến môi trường
 
-```
-~/.config/agent-bridge/
-├── vaults.json                # Registry vault
-├── cache/                     # Nội dung vault đã cache
-│   ├── builtin-starter/
-│   └── my-team/
-└── snapshots/                 # Snapshot đã lưu
-    ├── before-refactor/
-    └── stable-v1/
-```
+| Biến            | Mục đích                                | Mặc định |
+| --------------- | --------------------------------------- | -------- |
+| `NO_COLOR`      | Tắt màu ANSI trong output               | Unset    |
+| `SCREEN_READER` | Chế độ screen reader (spinner đơn giản) | Unset    |
+| `GITHUB_TOKEN`  | Cho MCP server github (không bắt buộc)  | Unset    |
+
+### Converter Interface
+
+Mọi converter triển khai `BaseConverter` ABC (`src/agent_bridge/core/converter.py`):
+
+| Method                    | Bắt buộc | Mục đích                                      |
+| ------------------------- | -------- | --------------------------------------------- |
+| `format_info`             | Có       | Return `IDEFormat` (name, output_dir, status) |
+| `convert()`               | Có       | Forward: `.agent/` → IDE format               |
+| `install_mcp()`           | Có       | Cài MCP config cho IDE                        |
+| `clean()`                 | Có       | Xóa generated IDE files                       |
+| `reverse_convert()`       | Không    | Scan IDE dir, return `List[CapturedFile]`     |
+| `apply_reverse_capture()` | Không    | Ghi một captured file về `.agent/`            |
+| `build_bridge_meta_map()` | Không    | Return `{ide_path: agent_path}` cho tracking  |
+| `supports_capture`        | Không    | Property: converter hỗ trợ reverse?           |
+| `mcp_output_path`         | Không    | Property: đường dẫn MCP output                |
+| `transform_mcp_config()`  | Không    | Transform MCP dict cho IDE format             |
 
 ---
 
 ## Hướng Dẫn Phát Triển
 
-### Thiết Lập
+### Thiết lập môi trường
 
 ```bash
 git clone https://github.com/HaoNgo232/agent-bridge.git
 cd agent-bridge
-make setup          # Hoặc thủ công:
+make setup          # Kiểm tra Python, tạo venv, cài deps, chạy lint
+
+# Hoặc thủ công:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-### Phong Cách Code
+### Quy tắc code
 
-- **Linter**: Ruff với pycodestyle, pyflakes, isort, flake8-bugbear, pyupgrade
-- **Độ dài dòng**: 120 ký tự
-- **Target**: Python 3.8
-- **Type hints**: Tùy chọn nhưng khuyến khích
+| Quy tắc       | Giá trị                                                 |
+| ------------- | ------------------------------------------------------- |
+| Linter        | Ruff (pycodestyle, pyflakes, isort, bugbear, pyupgrade) |
+| Độ dài dòng   | 120 ký tự                                               |
+| Target Python | 3.8                                                     |
+| Type hints    | Khuyến khích, không bắt buộc                            |
+| Comments      | Tiếng Việt không dấu trong code, tiếng Anh trong docs   |
 
 ```bash
-make lint           # Chạy linter
-make format         # Tự sửa và format
-make check          # Kiểm tra đầy đủ
-make clean          # Xóa file cache
+make lint      # Kiểm tra
+make format    # Tự sửa + format
+make check     # Kiểm tra đầy đủ
+make clean     # Xóa __pycache__
 ```
 
-### Thêm IDE Converter Mới
+### Thêm IDE Converter mới
 
-1. Tạo `src/agent_bridge/converters/my_ide.py`:
+Chỉ cần 3 bước, không cần sửa service hay CLI:
+
+**Bước 1:** Tạo `src/agent_bridge/converters/my_ide.py`
 
 ```python
 from agent_bridge.core.converter import BaseConverter, converter_registry
@@ -557,25 +780,42 @@ class MyIDEConverter(BaseConverter):
         return IDEFormat(name="myide", display_name="My IDE", output_dir=".myide")
 
     def convert(self, source_root, dest_root, verbose=True, force=False):
-        # ... logic chuyển đổi ...
-        return ConversionResult(agents=N, skills=N)
+        from agent_bridge.converters._my_ide_impl import convert_to_myide
+        stats = convert_to_myide(source_root, dest_root, verbose)
+        return ConversionResult(agents=stats["agents"], skills=stats["skills"])
 
     def install_mcp(self, source_root, dest_root, force=False):
         from agent_bridge.utils import install_mcp_for_ide
         return install_mcp_for_ide(source_root, dest_root, "myide")
 
     def clean(self, project_path):
-        # ... logic dọn dẹp ...
+        import shutil
+        myide_dir = project_path / ".myide"
+        if myide_dir.exists():
+            shutil.rmtree(myide_dir)
         return True
 
 converter_registry.register(MyIDEConverter)
 ```
 
-2. Tạo `src/agent_bridge/converters/_my_ide_impl.py` với các hàm chuyển đổi.
+**Bước 2:** Tạo `src/agent_bridge/converters/_my_ide_impl.py` với logic conversion.
 
-3. Thêm import vào `src/agent_bridge/converters/__init__.py`.
+**Bước 3:** Thêm import vào `src/agent_bridge/converters/__init__.py`:
 
-4. **Không cần thay đổi** gì ở CLI, services hay utils.
+```python
+from . import my_ide  # noqa: F401
+```
+
+Xong. CLI tự nhận IDE mới qua `converter_registry.names()`. Test bằng `agent-bridge list`.
+
+### Quy ước đặt tên file
+
+| Vị trí           | Pattern                        | Ví dụ                           |
+| ---------------- | ------------------------------ | ------------------------------- |
+| Converter public | `converters/{ide}.py`          | `converters/cursor.py`          |
+| Converter impl   | `converters/_{ide}_impl.py`    | `converters/_cursor_impl.py`    |
+| Service          | `services/{action}_service.py` | `services/capture_service.py`   |
+| Test             | `tests/test_{module}.py`       | `tests/test_capture_service.py` |
 
 ### Pre-commit Hook
 
@@ -583,54 +823,56 @@ converter_registry.register(MyIDEConverter)
 ln -s ../../scripts/pre-commit.sh .git/hooks/pre-commit
 ```
 
+Chạy Ruff lint + mypy type check trước mỗi commit.
+
 ---
 
 ## Kiểm Thử
 
 ```bash
-# Chạy tất cả test
-pytest tests/
-
-# Chạy với đầu ra chi tiết
-pytest tests/ -v
-
-# Chạy bộ test cụ thể
-pytest tests/test_capture_service.py
-pytest tests/test_snapshot_service.py
-pytest tests/test_roundtrip.py
-pytest tests/test_plugins.py
-pytest tests/test_status_service.py
-
-# Chạy test khớp mẫu
-pytest tests/ -k "roundtrip"
-
-# Trạng thái hiện tại: 137/137 test đạt
+pytest tests/                          # Tất cả 137 tests
+pytest tests/ -v                       # Verbose
+pytest tests/test_roundtrip.py         # Bộ test cụ thể
+pytest tests/ -k "capture"             # Pattern match
 ```
 
-### Cấu Trúc Test
+### Phân loại test
 
-| File Test                    | Phạm vi                                   |
-| ---------------------------- | ----------------------------------------- |
-| `test_agent_registry.py`     | Kiểm tra registry vai trò agent tập trung |
-| `test_capture_service.py`    | Quét và thực thi đồng bộ ngược            |
-| `test_cli_snapshot.py`       | Tích hợp lệnh snapshot CLI                |
-| `test_converter_registry.py` | Đăng ký và tra cứu converter              |
-| `test_converters.py`         | Chi tiết converter Copilot                |
-| `test_copilot_converter.py`  | Chuyển đổi Copilot end-to-end             |
-| `test_cursor_converter.py`   | Chuyển đổi Cursor end-to-end              |
-| `test_init_service.py`       | Test ủy quyền bridge-meta                 |
-| `test_kiro_converter.py`     | Chuyển đổi Kiro end-to-end                |
-| `test_kiro_reverse_edge.py`  | Trường hợp biên chuyển đổi ngược Kiro     |
-| `test_mcp_transform.py`      | Chuyển đổi định dạng MCP                  |
-| `test_merger.py`             | Chiến lược merge vault                    |
-| `test_plugins.py`            | Tải và thực thi hệ thống plugin           |
-| `test_reverse_copilot.py`    | Chuyển đổi ngược Copilot                  |
-| `test_reverse_cursor.py`     | Chuyển đổi ngược Cursor                   |
-| `test_reverse_kiro.py`       | Chuyển đổi ngược Kiro                     |
-| `test_roundtrip.py`          | Bảo toàn body xuôi → ngược                |
-| `test_snapshot_service.py`   | Thao tác CRUD snapshot                    |
-| `test_status_service.py`     | Thu thập và hiển thị trạng thái           |
-| `test_utils.py`              | Test hàm tiện ích                         |
+| File test                    | Phạm vi                                           |
+| ---------------------------- | ------------------------------------------------- |
+| `test_agent_registry.py`     | Registry integrity, subagent/handoff references   |
+| `test_converter_registry.py` | 5 converters registered, lookup, format_info      |
+| `test_cursor_converter.py`   | Cursor E2E: agents, MDC rules, skills, workflows  |
+| `test_copilot_converter.py`  | Copilot E2E: frontmatter, truncation, tools       |
+| `test_kiro_converter.py`     | Kiro E2E: JSON agents, prompts, steering          |
+| `test_opencode_converter.py` | OpenCode E2E: agents, commands, opencode.json     |
+| `test_windsurf_converter.py` | Windsurf E2E: rules, truncation, .windsurfrules   |
+| `test_reverse_cursor.py`     | Cursor reverse: agents, MDC rules, skills         |
+| `test_reverse_kiro.py`       | Kiro reverse: JSON→MD, prompts, steering, MCP     |
+| `test_reverse_copilot.py`    | Copilot reverse: strip tools, prompts, rules      |
+| `test_kiro_reverse_edge.py`  | Kiro edge: invalid JSON handling                  |
+| `test_roundtrip.py`          | Forward→reverse body preservation, E2E lifecycle  |
+| `test_capture_service.py`    | Scan, status detection, execute, dry-run          |
+| `test_init_service.py`       | Bridge-meta delegation, multi-IDE, edge cases     |
+| `test_snapshot_service.py`   | Save, version bump, list, delete, restore         |
+| `test_cli_snapshot.py`       | CLI snapshot commands integration                 |
+| `test_cli_integration.py`    | CLI init/update/capture/clean/status/vault        |
+| `test_status_service.py`     | Counts, staleness, MCP info, relative time        |
+| `test_sync_service.py`       | Vault sync, merge, IDE refresh                    |
+| `test_merger.py`             | PROJECT_WINS, VAULT_WINS, VAULT_ONLY strategies   |
+| `test_sources.py`            | GitSource validation, LocalSource, BuiltinSource  |
+| `test_mcp_transform.py`      | IDE-specific MCP key transformation               |
+| `test_plugins.py`            | Plugin loading, conditions, runner, prerequisites |
+| `test_converters.py`         | Copilot detailed: frontmatter, tools, handoffs    |
+| `test_utils.py`              | Frontmatter, truncation, path validation          |
+| `test_ux_improvements.py`    | NO_COLOR, spinner, display functions              |
+
+### Fixture chính
+
+`tests/conftest.py` cung cấp 2 fixtures:
+
+- `tmp_project`: Tạo `.agent/` với 2 agents, 1 skill, 1 workflow, 1 rule, MCP config
+- `tmp_project_with_ide_outputs`: `tmp_project` + chạy forward conversion cho Cursor, Kiro, Copilot
 
 ---
 
@@ -638,61 +880,93 @@ pytest tests/ -k "roundtrip"
 
 ### "No .agent/ directory available"
 
-Dự án của bạn không có thư mục `.agent/`. Có thể:
+Dự án chưa có `.agent/`. Giải pháp:
 
-- Chạy `agent-bridge init` với tùy chọn nguồn `vault` để khởi tạo từ vault
+- `agent-bridge init` → chọn "Use default vault (builtin)" trong TUI
+- `agent-bridge vault add my-team <git-url>` rồi `agent-bridge init`
+- `agent-bridge init --from <snapshot>` nếu có snapshot đã lưu
 - Tạo thủ công `.agent/agents/` và `.agent/skills/`
-- Dùng `agent-bridge init --from <snapshot>` nếu có snapshot đã lưu
 
-### "No vaults registered"
+### "IDE configs already exist"
 
-Chạy `agent-bridge vault add` để đăng ký nguồn kiến thức:
+Pre-flight validation phát hiện cấu hình IDE đã tồn tại. Giải pháp:
 
-```bash
-agent-bridge vault add my-team https://github.com/myorg/ai-agents.git
-agent-bridge vault sync
-```
+- `agent-bridge init --force` để ghi đè
+- `agent-bridge clean --cursor` rồi `init` lại
+- Dùng `agent-bridge capture` trước để lưu thay đổi IDE
 
 ### Capture hiển thị tất cả file là "new"
 
-Điều này xảy ra khi `.agent/.bridge-meta.json` bị thiếu hoặc lỗi thời. Chạy lại `agent-bridge init` để tạo lại file theo dõi, sau đó capture sẽ phát hiện chính xác các thay đổi.
+`.agent/.bridge-meta.json` bị thiếu hoặc outdated. Chạy `agent-bridge init` để tạo lại tracking file. Sau đó capture sẽ phân biệt chính xác modified vs new vs unchanged.
 
-### Cấu hình MCP không hoạt động trong VS Code/Copilot
+### MCP config không hoạt động trong VS Code
 
-VS Code yêu cầu MCP servers dưới key `"servers"`, không phải `"mcpServers"`. Agent Bridge tự động xử lý chuyển đổi này. Kiểm tra `.vscode/mcp.json` có chứa `{"servers": {...}}`.
+VS Code/Copilot yêu cầu key `"servers"`, không phải `"mcpServers"`. Agent Bridge xử lý transformation này tự động. Kiểm tra `.vscode/mcp.json` phải chứa `{"servers": {...}}`. Nếu file sai format, chạy `agent-bridge mcp --copilot --force`.
 
-### Cài đặt plugin thất bại
+### Vault sync thất bại
 
-1. Đảm bảo trình quản lý package cần thiết (npm/pip/cargo) đã được cài
-2. Kiểm tra kết nối mạng cho cài đặt package global
-3. Thử cài đặt thủ công: `npm install -g <package-name>`
-4. Dùng flag `--force` để bỏ qua prompt xác nhận
+1. **Network error**: Kiểm tra internet, thử `curl <git-url>`
+2. **Auth error**: Kiểm tra SSH key — `ssh -T git@github.com`
+3. **URL error**: Verify URL qua `agent-bridge vault list`
+4. **Recovery**: `agent-bridge vault sync --name <vault>` để thử lại vault cụ thể
+5. **Offline**: `agent-bridge init --source project` để dùng `.agent/` local
 
-### Cấu hình IDE lỗi thời
+### IDE config lỗi thời (stale)
 
-Chạy `agent-bridge status` để kiểm tra độ cũ, sau đó `agent-bridge update` để làm mới.
+`agent-bridge status` hiển thị `⚠ (stale)` khi `.agent/` files mới hơn IDE files. Chạy `agent-bridge update` để refresh tự động.
+
+### Plugin installation fails
+
+1. Kiểm tra package manager (`npm`/`pip`/`cargo`) đã cài
+2. Thử cài thủ công: `npm install -g <package-name>`
+3. Dùng `--force` để bỏ qua confirmation prompts
+4. Kiểm tra timeout — mặc định 180s cho plugin command, 120s cho prerequisite
 
 ---
 
 ## Đóng Góp
 
 1. Fork repository
-2. Tạo nhánh tính năng: `git checkout -b feature/my-feature`
-3. Thực hiện thay đổi theo hướng dẫn phong cách code
-4. Thêm test cho chức năng mới
-5. Chạy `make check` để xác minh lint đạt
-6. Chạy `pytest tests/` để xác minh tất cả test đạt
-7. Gửi pull request
+2. Tạo nhánh: `git checkout -b feature/my-feature`
+3. Thay đổi code theo phong cách trong `.windsurfrules` và AGENTS.md
+4. Thêm test cho chức năng mới (đặt trong `tests/test_*.py`)
+5. Chạy `make check` — lint phải đạt
+6. Chạy `pytest tests/` — tất cả test phải đạt
+7. Gửi Pull Request
+
+### Checklist trước khi commit
+
+- Ruff lint đạt (`make lint`)
+- Tất cả tests đạt (`pytest tests/`)
+- Nếu thêm converter mới: có test E2E + roundtrip
+- Nếu sửa capture logic: test `test_capture_service.py` đạt
+- Nếu sửa agent registry: `validate_agent_references()` không lỗi
+- File mới tuân theo naming convention
+
+---
+
+## Dependencies
+
+| Package     | Phiên bản | Mục đích                           |
+| ----------- | --------- | ---------------------------------- |
+| PyYAML      | any       | Parse YAML frontmatter             |
+| questionary | >= 2.0.0  | TUI interactive prompts            |
+| rich        | >= 13.0   | Colored terminal output (optional) |
+| ruff        | >= 0.1    | Linter/formatter (dev)             |
+| mypy        | >= 1.0    | Static type check (dev)            |
+| pytest      | >= 8.3    | Test framework (dev)               |
+
+**Lưu ý**: `click` có trong `pyproject.toml` nhưng không được import — CLI dùng `argparse` builtin.
 
 ---
 
 ## Ghi Nhận
 
-- [Antigravity Kit](https://github.com/vudovn/antigravity-kit) bởi Vudovn (Giấy phép MIT)
-- [UI-UX Pro Max](https://github.com/nextlevelbuilder) bởi NextLevelBuilder (Giấy phép MIT)
+- [Antigravity Kit](https://github.com/vudovn/antigravity-kit) bởi Vudovn (MIT License)
+- [UI-UX Pro Max](https://github.com/nextlevelbuilder) bởi NextLevelBuilder (MIT License)
 
 ---
 
 ## Giấy Phép
 
-MIT © HaoNgo232
+MIT © [HaoNgo232](https://github.com/HaoNgo232)

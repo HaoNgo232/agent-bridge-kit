@@ -1,13 +1,12 @@
 {
   "selected_files": [
-    ".",
     ".gitignore",
     ".windsurf",
     ".windsurfrules",
     "AGENTS.md",
     "Makefile",
     "README.md",
-    "docs",
+    "docs/README.vi.md",
     "llms.txt",
     "pyproject.toml",
     "scripts",
