@@ -44,7 +44,10 @@ def run_init(
 
         snapshot_dir = get_snapshot_agent_dir(snapshot_name)
         if not snapshot_dir:
-            return {"error": f"Snapshot '{snapshot_name}' not found"}
+            return {
+                "error": f"Snapshot '{snapshot_name}' not found",
+                "suggestion": "Run 'agent-bridge snapshot list' to see available snapshots",
+            }
         merge_source_into_project(snapshot_dir, agent_dir, MergeStrategy.VAULT_ONLY)
     elif source_choice == "vault":
         _fetch_vault(agent_dir, overwrite=True)
@@ -52,7 +55,10 @@ def run_init(
         _fetch_vault(agent_dir, overwrite=False)
 
     if not agent_dir.exists():
-        return {"error": "No .agent/ directory available"}
+        return {
+            "error": "No .agent/ directory available",
+            "suggestion": "Run 'agent-bridge vault add' to register a knowledge source, or create .agent/ manually",
+        }
 
     # Buoc 2: Chay converter
     results: Dict[str, Any] = {}

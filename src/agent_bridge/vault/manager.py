@@ -108,15 +108,22 @@ class VaultManager:
         return None
 
     def sync(self, name: str = None, verbose: bool = True) -> Dict[str, Any]:
+        from agent_bridge.utils.spinner import SimpleSpinner
+        from agent_bridge.utils.colors import Colors
+
         results = {}
         targets = [self.get(name)] if name else self.enabled_vaults
         targets = [t for t in targets if t is not None]
 
         for vault in targets:
             if verbose:
-                print(f"  Syncing vault: {vault.name} ...")
-            source = vault.get_source()
-            results[vault.name] = source.sync(vault.cache_path, verbose)
+                with SimpleSpinner(f"Syncing vault: {vault.name}"):
+                    source = vault.get_source()
+                    results[vault.name] = source.sync(vault.cache_path, verbose=False)
+                print(f"  {Colors.GREEN}✓{Colors.ENDC} Synced: {vault.name}")
+            else:
+                source = vault.get_source()
+                results[vault.name] = source.sync(vault.cache_path, verbose=False)
 
         return results
 

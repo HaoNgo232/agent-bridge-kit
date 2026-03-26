@@ -182,7 +182,13 @@ def _handle_init(args, registry):
         )
 
         if "error" in result:
-            print(f"{Colors.RED}{result['error']}{Colors.ENDC}")
+            from agent_bridge.utils.display import print_error_with_suggestion
+
+            suggestion = result.get("suggestion", "")
+            if suggestion:
+                print_error_with_suggestion(result["error"], suggestion)
+            else:
+                print(f"{Colors.RED}{result['error']}{Colors.ENDC}")
         else:
             for name, conv_result in result.items():
                 if conv_result and getattr(conv_result, "ok", True):

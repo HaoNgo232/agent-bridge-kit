@@ -29,6 +29,14 @@ def display_status(status: ProjectStatus) -> None:
     if not status.vault_statuses:
         print(f"   {Colors.YELLOW}⚠ No vaults registered{Colors.ENDC}")
     else:
+        # Calculate max width dynamically
+        import shutil
+        terminal_width = shutil.get_terminal_size((80, 20)).columns
+        max_name_width = min(
+            max([len(v.name) for v in status.vault_statuses], default=20),
+            terminal_width - 40  # Reserve space for status info
+        )
+        
         for vault in status.vault_statuses:
             if not vault.enabled:
                 continue
@@ -40,10 +48,10 @@ def display_status(status: ProjectStatus) -> None:
                 else:
                     symbol = f"{Colors.GREEN}✓{Colors.ENDC}"
                     note = ""
-                print(f"   {symbol} {vault.name:<20} (synced {vault.freshness}){note}")
+                print(f"   {symbol} {vault.name:<{max_name_width}} (synced {vault.freshness}){note}")
             else:
                 symbol = f"{Colors.RED}✗{Colors.ENDC}"
-                print(f"   {symbol} {vault.name:<20} (never synced)")
+                print(f"   {symbol} {vault.name:<{max_name_width}} (never synced)")
     
     # IDEs
     print(f"{Colors.BOLD}🖥  IDEs:{Colors.ENDC}")

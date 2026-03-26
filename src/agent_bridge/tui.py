@@ -11,17 +11,17 @@ from questionary import Separator, Style
 
 from agent_bridge.utils import Colors
 
-# Cau hinh style cho Questionary
+# Cau hinh style cho Questionary - ANSI classes for accessibility
 CUSTOM_STYLE = Style(
     [
-        ("qmark", "fg:#00d4ff bold"),
+        ("qmark", "class:ansicyan bold"),
         ("question", "bold"),
-        ("answer", "fg:#00d4ff bold"),
-        ("pointer", "fg:#00d4ff bold"),
-        ("highlighted", "fg:#00d4ff bold bg:default"),
-        ("selected", "fg:#00d4ff bold bg:default"),
-        ("checkbox", "fg:#888888"),
-        ("checkbox-selected", "fg:#00d4ff bold"),
+        ("answer", "class:ansicyan bold"),
+        ("pointer", "class:ansicyan bold"),
+        ("highlighted", "class:ansicyan bold bg:default"),
+        ("selected", "class:ansigreen bold"),  # Success color
+        ("checkbox", "class:ansiblack"),
+        ("checkbox-selected", "class:ansicyan bold"),
     ]
 )
 
