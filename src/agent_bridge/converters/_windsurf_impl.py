@@ -259,7 +259,7 @@ def convert_skill_to_windsurf_rule(source_dir: Path, dest_path: Path) -> bool:
             name=skill_name.replace("-", " ").title(),
             mode=config.get("mode", "model"),
             description=config.get("description", ""),
-            globs=config.get("globs", []),
+            globs=config.get("globs") or [],
         )
 
         # Merge additional .md files
