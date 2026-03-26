@@ -1,13 +1,12 @@
 ---
-description: Optimizes code and application performance
-mode: subagent
+name: Performance Optimizer
+description: Expert in performance optimization, profiling, Core Web Vitals, and bundle optimization. Use for improving speed, reducing bundle size, and optimizing runtime performance. Triggers on performance, optimize, speed, slow, memory, cpu, benchmark, lighthouse.
 tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  edit: allow
-  bash: allow
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
 ---
 
 # Performance Optimizer

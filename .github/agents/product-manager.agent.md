@@ -1,13 +1,10 @@
 ---
-description: Product management and requirements
-mode: subagent
+name: Product Manager
+description: Expert in product requirements, user stories, and acceptance criteria. Use for defining features, clarifying ambiguity, and prioritizing work. Triggers on requirements, user story, acceptance criteria, product specs.
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: deny
-  bash: deny
+- search/codebase
+- search/usages
+- web/fetch
 ---
 
 # Product Manager

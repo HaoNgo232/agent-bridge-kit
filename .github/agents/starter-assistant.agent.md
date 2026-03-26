@@ -1,12 +1,10 @@
 ---
-description: Agent for starter assistant tasks
-mode: subagent
+name: Starter Assistant
+description: Specialized agent for starter assistant tasks
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: ask
+- search/codebase
+- edit/editFiles
+- web/fetch
 ---
 
 # Starter Assistant

@@ -1,14 +1,11 @@
 ---
-description: Analyzes legacy code and dependencies
-mode: subagent
+name: Code Archaeologist
+description: Expert in legacy code, refactoring, and understanding undocumented systems. Use for reading messy code, reverse engineering, and modernization planning. Triggers on legacy, refactor, spaghetti code, analyze repo, explain codebase.
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: deny
-  bash: deny
-hidden: true
+- search/codebase
+- search/usages
+- web/fetch
+user-invokable: false
 ---
 
 # Code Archaeologist

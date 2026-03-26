@@ -1,6 +1,6 @@
 ---
-description: Core coding standards
-globs: 
+description: Clean code principles and best practices
+globs: []
 alwaysApply: true
 ---
 

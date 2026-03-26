@@ -1,13 +1,10 @@
 ---
-description: Product ownership and backlog management
-mode: subagent
+name: Product Owner
+description: Strategic facilitator bridging business needs and technical execution. Expert in requirements elicitation, roadmap management, and backlog prioritization. Triggers on requirements, user story, backlog, MVP, PRD, stakeholder.
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: deny
-  bash: deny
+- search/codebase
+- search/usages
+- web/fetch
 ---
 
 # Product Owner

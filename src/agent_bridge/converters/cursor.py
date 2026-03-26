@@ -80,7 +80,8 @@ class CursorConverter(BaseConverter):
                 try:
                     fm, _ = _parse_mdc_frontmatter(f.read_text(encoding="utf-8"))
                     always_apply = fm.get("alwaysApply", False)
-                    globs = fm.get("globs", "").strip()
+                    globs = fm.get("globs")
+                    # Check for empty globs (could be None, empty list [], or empty string "")
                     if always_apply and not globs:
                         file_map[f".cursor/rules/{f.name}"] = f".agent/rules/{f.stem}.md"
                     else:

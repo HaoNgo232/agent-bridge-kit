@@ -104,14 +104,19 @@ def _get_cursor_agent_description(slug: str) -> str:
 
 def generate_mdc_frontmatter(description: str = "", globs: str = "", always_apply: bool = False) -> str:
     """
-    Generate MDC frontmatter for Cursor rules.
+    Generate MDC frontmatter for Cursor rules using standard YAML for robustness.
     """
-    lines = ["---"]
-    lines.append(f"description: {description}")
-    lines.append(f"globs: {globs}")
-    lines.append(f"alwaysApply: {str(always_apply).lower()}")
-    lines.append("---")
-    return "\n".join(lines)
+    # Use empty list [] for empty globs, consistently with Cursor standard
+    globs_final = globs if globs else []
+    
+    fm = {
+        "description": description,
+        "globs": globs_final,
+        "alwaysApply": always_apply
+    }
+    # Use yaml.dump ensure correctly quoted and escaped
+    yaml_text = yaml.dump(fm, sort_keys=False, allow_unicode=True, width=1000).strip()
+    return f"---\n{yaml_text}\n---"
 
 
 def extract_metadata_from_content(content: str) -> Dict[str, Any]:
@@ -150,15 +155,17 @@ def convert_agent_to_cursor(source_path: Path, dest_path: Path) -> bool:
         # Cursor Subagents frontmatter
         description = _get_cursor_agent_description(agent_slug)
 
-        lines = ["---"]
-        lines.append(f"name: {agent_name}")
-        lines.append(f"description: {description}")
-        lines.append("---")
+        fm = {
+            "name": agent_name,
+            "description": description
+        }
+        yaml_text = yaml.dump(fm, sort_keys=False, allow_unicode=True).strip()
+        header = f"---\n{yaml_text}\n---"
 
         # Remove existing frontmatter from content
         content_clean = re.sub(r"^---\n.*?\n---\n*", "", content, flags=re.DOTALL)
 
-        output = "\n".join(lines) + f"\n\n{content_clean.strip()}{CREDIT_LINE}"
+        output = header + f"\n\n{content_clean.strip()}{CREDIT_LINE}"
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         dest_path.write_text(output, encoding="utf-8")
@@ -257,7 +264,12 @@ def convert_workflow_to_cursor_skill(source_path: Path, skills_dest: Path) -> bo
         # Agent Skills spec: name must be lowercase alphanumeric + hyphens, max 64 chars
         normalized_name = re.sub(r"[^a-z0-9-]", "-", name.lower())[:64].strip("-")
 
-        header = f"---\nname: {normalized_name}\ndescription: {description}\n---\n\n"
+        fm = {
+            "name": normalized_name,
+            "description": description
+        }
+        yaml_text = yaml.dump(fm, sort_keys=False, allow_unicode=True).strip()
+        header = f"---\n{yaml_text}\n---\n\n"
         (skill_folder / "SKILL.md").write_text(f"{header}{content_clean.strip()}{CREDIT_LINE}", encoding="utf-8")
         return True
     except Exception as e:
@@ -388,7 +400,7 @@ def convert_to_cursor(source_root: Path, dest_root: Path, verbose: bool = True) 
 
 def _parse_mdc_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
     """
-    Parse MDC frontmatter bang regex (khong dung yaml.safe_load vi globs co the la bare string).
+    Parse MDC frontmatter using yaml.safe_load for robustness.
 
     Returns:
         (dict voi description, globs, alwaysApply), body
@@ -399,19 +411,20 @@ def _parse_mdc_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
     fm_block = match.group(1)
     body = match.group(2)
 
-    fm: Dict[str, Any] = {"description": "", "globs": "", "alwaysApply": False}
-    for line in fm_block.split("\n"):
-        if ":" in line:
-            key, _, val = line.partition(":")
-            key = key.strip().lower()
-            val = val.strip()
-            if key == "description":
-                fm["description"] = val
-            elif key == "globs":
-                fm["globs"] = val
-            elif key in ("alwaysapply", "always_apply"):
-                fm["alwaysApply"] = val.lower() in ("true", "1", "yes")
-    return fm, body
+    try:
+        fm = yaml.safe_load(fm_block)
+        if not isinstance(fm, dict):
+            fm = {}
+    except yaml.YAMLError:
+        fm = {}
+
+    # Normalize fields (backward compat or case diffs)
+    result = {
+        "description": fm.get("description", ""),
+        "globs": fm.get("globs", []),
+        "alwaysApply": fm.get("alwaysApply", fm.get("always_apply", False))
+    }
+    return result, body
 
 
 def _strip_credit_line(content: str) -> str:

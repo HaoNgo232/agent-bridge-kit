@@ -1,6 +1,6 @@
 ---
 description: Mobile development for iOS/Android
-globs: **/App.tsx,**/app.json,**/*.native.*,**/android/**/*,**/ios/**/*
+globs: '**/App.tsx,**/app.json,**/*.native.*,**/android/**/*,**/ios/**/*'
 alwaysApply: false
 ---
 

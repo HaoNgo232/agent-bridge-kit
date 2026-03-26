@@ -1,13 +1,12 @@
 ---
-description: Mobile development for iOS/Android
-mode: subagent
+name: Mobile Developer
+description: Expert in React Native and Flutter mobile development. Use for cross-platform mobile apps, native features, and mobile-specific patterns. Triggers on mobile, react native, flutter, ios, android, app store, expo.
 tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  edit: allow
-  bash: allow
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
 ---
 
 # Mobile Developer

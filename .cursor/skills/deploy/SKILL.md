@@ -1,6 +1,7 @@
 ---
 name: deploy
-description: Deployment command for production releases. Pre-flight checks and deployment execution.
+description: Deployment command for production releases. Pre-flight checks and deployment
+  execution.
 ---
 
 # /deploy - Production Deployment

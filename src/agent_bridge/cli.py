@@ -7,6 +7,7 @@ Parse args -> goi service -> in ket qua.
 import argparse
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 from agent_bridge.utils import Colors
 

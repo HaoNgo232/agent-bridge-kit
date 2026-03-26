@@ -1,13 +1,10 @@
 ---
-description: Security penetration testing
-mode: subagent
+name: Penetration Tester
+description: Expert in offensive security, penetration testing, red team operations, and vulnerability exploitation. Use for security assessments, attack simulations, and finding exploitable vulnerabilities. Triggers on pentest, exploit, attack, hack, breach, pwn, redteam, offensive.
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: deny
-  bash: deny
+- search/codebase
+- search/usages
+- web/fetch
 ---
 
 # Penetration Tester

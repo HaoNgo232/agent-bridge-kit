@@ -1,6 +1,6 @@
 ---
 description: Agent behavioral guidelines
-globs: 
+globs: []
 alwaysApply: true
 ---
 

@@ -1,13 +1,11 @@
 ---
-description: Search engine optimization
-mode: subagent
+name: SEO Specialist
+description: SEO and GEO (Generative Engine Optimization) expert. Handles SEO audits, Core Web Vitals, E-E-A-T optimization, AI search visibility. Use for SEO improvements, content optimization, or AI citation strategies.
 tools:
-  write: true
-  edit: true
-  bash: false
-permission:
-  edit: allow
-  bash: deny
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
 ---
 
 # SEO Specialist

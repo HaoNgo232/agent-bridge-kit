@@ -1,13 +1,15 @@
 ---
-description: Explores and analyzes codebase structure
-mode: subagent
+name: Explorer Agent
+description: Advanced codebase discovery, deep architectural analysis, and proactive research agent. The eyes and ears of the framework. Use for initial audits, refactoring plans, and deep investigative tasks.
 tools:
-  write: false
-  edit: false
-  bash: false
-permission:
-  edit: deny
-  bash: deny
+- search/codebase
+- search/usages
+- web/fetch
+handoffs:
+- label: Create Plan
+  agent: project-planner
+  prompt: Create an implementation plan based on this codebase analysis.
+  send: false
 ---
 
 # Explorer Agent - Advanced Discovery & Research

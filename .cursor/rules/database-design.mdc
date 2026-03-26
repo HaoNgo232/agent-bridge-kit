@@ -1,6 +1,8 @@
 ---
-description: Database schema and SQL patterns
-globs: **/*.sql,**/prisma/**/*,**/drizzle/**/*,**/migrations/**/*
+description: Database design and SQL patterns
+globs:
+- '**/*.sql'
+- '**/prisma/**/*'
 alwaysApply: false
 ---
 

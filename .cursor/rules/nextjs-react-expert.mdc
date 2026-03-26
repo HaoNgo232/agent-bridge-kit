@@ -1,6 +1,6 @@
 ---
 description: Next.js and React expertise
-globs: **/*.tsx,**/*.jsx,**/next.config.*,**/app/**/*,**/pages/**/*
+globs: '**/*.tsx,**/*.jsx,**/next.config.*,**/app/**/*,**/pages/**/*'
 alwaysApply: false
 ---
 

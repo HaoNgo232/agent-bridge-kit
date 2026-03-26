@@ -1,13 +1,22 @@
 ---
-description: Root cause analysis and bug fixing
-mode: subagent
+name: Debugger
+description: Expert in systematic debugging, root cause analysis, and crash investigation. Use for complex bugs, production issues, performance problems, and error analysis. Triggers on bug, error, crash, not working, broken, investigate, fix.
+agents:
+- backend-specialist
+- frontend-specialist
+- test-engineer
 tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  edit: allow
-  bash: allow
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
+- agent
+handoffs:
+- label: Implement Fix
+  agent: backend-specialist
+  prompt: Implement the fix for the identified bug.
+  send: false
 ---
 
 # Debugger - Root Cause Analysis Expert

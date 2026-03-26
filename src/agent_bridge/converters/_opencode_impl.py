@@ -158,7 +158,7 @@ def generate_agent_frontmatter(config: Dict[str, Any]) -> str:
     if config.get("temperature"):
         frontmatter["temperature"] = config["temperature"]
 
-    return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False, width=1000)
 
 
 def generate_command_frontmatter(config: Dict[str, Any]) -> str:
@@ -176,7 +176,7 @@ def generate_command_frontmatter(config: Dict[str, Any]) -> str:
     if config.get("model"):
         frontmatter["model"] = config["model"]
 
-    return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False, width=1000)
 
 
 # =============================================================================

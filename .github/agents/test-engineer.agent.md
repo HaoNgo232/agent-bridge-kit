@@ -1,13 +1,17 @@
 ---
-description: Writes and maintains tests
-mode: subagent
+name: Test Engineer
+description: Expert in testing, TDD, and test automation. Use for writing tests, improving coverage, debugging test failures. Triggers on test, spec, coverage, jest, pytest, playwright, e2e, unit test.
 tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  edit: allow
-  bash: allow
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
+handoffs:
+- label: Fix Failing Tests
+  agent: backend-specialist
+  prompt: Fix the code to make the failing tests pass.
+  send: false
 ---
 
 # Test Engineer

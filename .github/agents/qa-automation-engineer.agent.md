@@ -1,13 +1,12 @@
 ---
-description: QA test automation
-mode: subagent
+name: QA Automation Engineer
+description: Specialist in test automation infrastructure and E2E testing. Focuses on Playwright, Cypress, CI pipelines, and breaking the system. Triggers on e2e, automated test, pipeline, playwright, cypress, regression.
 tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  edit: allow
-  bash: allow
+- search/codebase
+- search/usages
+- edit/editFiles
+- web/fetch
+- read/terminalLastCommand
 ---
 
 # QA Automation Engineer

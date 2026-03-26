@@ -1,6 +1,6 @@
 ---
 description: Project-specific instructions and architecture guidelines
-globs: 
+globs: []
 alwaysApply: true
 ---
 
