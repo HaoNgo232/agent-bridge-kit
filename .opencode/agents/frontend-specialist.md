@@ -1,5 +1,5 @@
 ---
-description: Frontend development with React, Next.js, UI/UX
+description: Frontend development with React, Vue, and web technologies
 mode: primary
 tools:
   write: true

@@ -6,8 +6,8 @@ tools:
   edit: true
   bash: true
 permission:
-  edit: allow
-  bash: allow
+  edit: ask
+  bash: ask
 ---
 
 # Performance Optimizer

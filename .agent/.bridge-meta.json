@@ -1,9 +1,11 @@
 {
-  "generated_at": "2026-03-23T05:31:13Z",
+  "generated_at": "2026-03-26T13:31:41Z",
   "generated_for": [
     "copilot",
     "cursor",
-    "kiro"
+    "kiro",
+    "opencode",
+    "windsurf"
   ],
   "file_map": {
     ".cursor/agents/database-architect.md": ".agent/agents/database-architect.md",
@@ -144,19 +146,7 @@
     ".kiro/prompts/enhance.md": ".agent/workflows/enhance.md",
     ".kiro/prompts/deploy.md": ".agent/workflows/deploy.md",
     ".kiro/prompts/plan.md": ".agent/workflows/plan.md",
-    ".kiro/steering/debug.md": ".agent/rules/debug.md",
-    ".kiro/steering/orchestrate.md": ".agent/rules/orchestrate.md",
-    ".kiro/steering/test.md": ".agent/rules/test.md",
     ".kiro/steering/ui-ux-pro-max.md": ".agent/rules/ui-ux-pro-max.md",
-    ".kiro/steering/ARCHITECTURE.md": ".agent/rules/ARCHITECTURE.md",
-    ".kiro/steering/brainstorm.md": ".agent/rules/brainstorm.md",
-    ".kiro/steering/GEMINI.md": ".agent/rules/GEMINI.md",
-    ".kiro/steering/preview.md": ".agent/rules/preview.md",
-    ".kiro/steering/status.md": ".agent/rules/status.md",
-    ".kiro/steering/create.md": ".agent/rules/create.md",
-    ".kiro/steering/enhance.md": ".agent/rules/enhance.md",
-    ".kiro/steering/deploy.md": ".agent/rules/deploy.md",
-    ".kiro/steering/plan.md": ".agent/rules/plan.md",
     ".kiro/settings/mcp.json": ".agent/mcp_config.json",
     ".github/agents/database-architect.md": ".agent/agents/database-architect.md",
     ".github/agents/documentation-writer.md": ".agent/agents/documentation-writer.md",

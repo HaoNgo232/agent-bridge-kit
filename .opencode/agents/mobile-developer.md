@@ -6,8 +6,7 @@ tools:
   edit: true
   bash: true
 permission:
-  edit: allow
-  bash: allow
+  edit: ask
 ---
 
 # Mobile Developer

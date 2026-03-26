@@ -1,6 +1,6 @@
 ---
 description: Testing frameworks and patterns
-globs: ['**/*.test.*', '**/*.spec.*']
+globs: **/*.test.*,**/*.spec.*,**/__tests__/**/*,**/tests/**/*
 alwaysApply: false
 ---
 

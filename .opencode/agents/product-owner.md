@@ -6,8 +6,7 @@ tools:
   edit: false
   bash: false
 permission:
-  edit: deny
-  bash: deny
+  edit: ask
 ---
 
 # Product Owner

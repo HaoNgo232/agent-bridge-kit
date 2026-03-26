@@ -7,7 +7,6 @@ tools:
   bash: false
 permission:
   edit: deny
-  bash: deny
 ---
 
 # Explorer Agent - Advanced Discovery & Research

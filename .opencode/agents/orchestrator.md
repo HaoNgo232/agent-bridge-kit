@@ -1,10 +1,10 @@
 ---
-description: High-level coordinator for complex, multi-step tasks
+description: Orchestrates tasks and delegates to specialized agents
 mode: primary
 tools:
-  write: false
-  edit: false
-  bash: false
+  write: true
+  edit: true
+  bash: true
 permission:
   task:
     '*': allow

@@ -6,8 +6,7 @@ tools:
   edit: true
   bash: false
 permission:
-  edit: allow
-  bash: deny
+  edit: ask
 ---
 
 # SEO Specialist

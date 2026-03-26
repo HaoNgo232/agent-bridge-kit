@@ -1,5 +1,11 @@
 {
   "mcpServers": {
+    "ddg-search": {
+      "command": "uvx",
+      "args": [
+        "duckduckgo-mcp-server"
+      ]
+    },
     "shadcn": {
       "command": "npx",
       "args": [

@@ -1,13 +1,13 @@
 ---
-description: Root cause analysis and bug fixing
+description: Debugs issues and analyzes errors
 mode: subagent
 tools:
   write: true
   edit: true
   bash: true
 permission:
-  edit: allow
-  bash: allow
+  edit: ask
+  bash: ask
 ---
 
 # Debugger - Root Cause Analysis Expert

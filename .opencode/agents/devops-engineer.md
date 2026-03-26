@@ -7,7 +7,7 @@ tools:
   bash: true
 permission:
   edit: allow
-  bash: allow
+  bash: ask
 ---
 
 # DevOps Engineer
